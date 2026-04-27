@@ -1,9 +1,16 @@
 const express = require('express');
 const authMiddleware = require('../middleware/auth');
+const { validate, createChainSchema } = require('../middleware/validate');
 const Chain = require('../models/Chain');
 const Deployment = require('../models/Deployment');
+const User = require('../models/User');
+
+const PLAN_CHAIN_LIMITS = {
+  free: 3, basic: 5, standard: 15, enterprise: 999,
+};
 
 const router = express.Router();
+
 
 // ── GET /api/chains ──────────────────────────────────────
 router.get('/', authMiddleware, async (req, res) => {
@@ -30,15 +37,23 @@ router.get('/:id', authMiddleware, async (req, res) => {
 
 // ── POST /api/chains ─────────────────────────────────────
 router.post('/', authMiddleware, async (req, res) => {
-  try {
-    const {
-      name, type, template, chainId, symbol, consensus,
-      blockTime, blockGasLimit, networkType, token, governance, customConfig,
-    } = req.body;
+  const body = validate(req, res, createChainSchema);
+  if (!body) return;
 
-    if (!name || !type) {
-      return res.status(400).json({ success: false, error: 'Chain name and type are required.' });
+  try {
+    // Enforce plan limits
+    const user = await User.findById(req.userId);
+    const limit = PLAN_CHAIN_LIMITS[user?.plan || 'free'];
+    const existingCount = await Chain.countDocuments({ userId: req.userId });
+
+    if (existingCount >= limit) {
+      return res.status(403).json({
+        success: false,
+        error: `Your ${user?.plan || 'free'} plan allows max ${limit} chains. Upgrade to create more.`,
+      });
     }
+
+    const { name, type, template, chainId, symbol, consensus, blockTime, blockGasLimit, networkType, token, governance, customConfig } = body;
 
     const chain = await Chain.create({
       userId: req.userId,
@@ -46,19 +61,14 @@ router.post('/', authMiddleware, async (req, res) => {
       type,
       template: template || null,
       config: {
-        chainId: chainId || Math.floor(Math.random() * 90000) + 10000,
+        chainId: chainId || Math.floor(Math.random() * 900000) + 10000,
         symbol: symbol || 'TOKEN',
         consensus: consensus || 'poa',
         blockTime: blockTime || 5,
         blockGasLimit: blockGasLimit || '30000000',
         networkType: networkType || 'public',
       },
-      token: token || {
-        name: `${name} Token`,
-        symbol: symbol || 'TOKEN',
-        decimals: 18,
-        totalSupply: '1000000000',
-      },
+      token: token || { name: `${name} Token`, symbol: symbol || 'TOKEN', decimals: 18, totalSupply: '1000000000' },
       governance: governance || { type: 'admin', votingPeriod: 86400, quorum: 51 },
       customConfig: customConfig || {},
     });
@@ -69,6 +79,7 @@ router.post('/', authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to create chain.' });
   }
 });
+
 
 // ── PUT /api/chains/:id ──────────────────────────────────
 router.put('/:id', authMiddleware, async (req, res) => {

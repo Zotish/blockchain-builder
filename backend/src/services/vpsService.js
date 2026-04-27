@@ -9,7 +9,9 @@
  */
 
 const { NodeSSH } = require('node-ssh');
-const { getTemplate, allocatePorts, freePorts } = require('./blockchainTemplates');
+const { getTemplate } = require('./blockchainTemplates');
+const { allocatePorts, freePorts } = require('./portManager');
+
 
 // ── SSH connection pool ──────────────────────────────────
 // Reuse connections instead of reconnecting every time
@@ -133,7 +135,13 @@ async function deployOnVPS(chain, network, onLog) {
   const chainIdStr = chain._id.toString().slice(-8);
   const containerName = `cf-${network}-${chainIdStr}`;
   const template = getTemplate(chain.type);
-  const { rpcPort, wsPort, p2pPort } = allocatePorts(chain.type);
+  const { rpcPort, wsPort, p2pPort } = await allocatePorts(
+    chain._id,
+    chain.type,
+    network,
+    containerName
+  );
+
 
   let ssh;
   try {

@@ -1,8 +1,12 @@
 const express = require('express');
 const authMiddleware = require('../middleware/auth');
+const { paymentLimiter } = require('../middleware/rateLimiter');
+const { validate, createPaymentSchema, verifyPaymentSchema } = require('../middleware/validate');
 const Payment = require('../models/Payment');
 const Chain = require('../models/Chain');
+const User = require('../models/User');
 const config = require('../config');
+const { verifyPayment } = require('../services/paymentVerifier');
 
 const router = express.Router();
 
@@ -11,26 +15,11 @@ router.get('/pricing', (req, res) => {
   res.json({
     success: true,
     data: {
-      pricing: {
-        testnet: { price: '0', currency: 'FREE', description: 'Free testnet deployment' },
-        basic: {
-          price: config.pricing.basic,
-          currency: 'ETH',
-          description: 'Basic mainnet — 1 node',
-          features: ['1 Node', 'Basic Support', '30-day SLA'],
-        },
-        standard: {
-          price: config.pricing.standard,
-          currency: 'ETH',
-          description: 'Standard mainnet — 3 nodes',
-          features: ['3 Nodes', 'Priority Support', '90-day SLA', 'Block Explorer'],
-        },
-        enterprise: {
-          price: config.pricing.enterprise,
-          currency: 'ETH',
-          description: 'Enterprise — full infrastructure',
-          features: ['5+ Nodes', '24/7 Support', '1-year SLA', 'Custom Domain', 'Analytics'],
-        },
+      plans: {
+        testnet: { price: '0', currency: 'FREE', label: 'Testnet', features: ['Free forever', '72h lifetime', '1 node'] },
+        basic:   { price: config.pricing.basic,    currency: 'ETH', label: 'Basic',    features: ['1 Node', '30-day SLA', 'Basic support'] },
+        standard:{ price: config.pricing.standard, currency: 'ETH', label: 'Standard', features: ['3 Nodes', '90-day SLA', 'Priority support', 'Block Explorer'] },
+        enterprise:{ price: config.pricing.enterprise, currency: 'ETH', label: 'Enterprise', features: ['5+ Nodes', '1-year SLA', '24/7 support', 'Custom domain', 'Analytics'] },
       },
       acceptedCurrencies: ['ETH', 'BNB', 'MATIC', 'USDT', 'USDC'],
       paymentWallet: config.paymentWallet,
@@ -38,19 +27,33 @@ router.get('/pricing', (req, res) => {
   });
 });
 
-// ── POST /api/payment/create ─────────────────────────────
-router.post('/create', authMiddleware, async (req, res) => {
+// ── POST /api/payment/create ──────────────────────────────
+router.post('/create', authLimiterApply, authMiddleware, async (req, res) => {
+  const body = validate(req, res, createPaymentSchema);
+  if (!body) return;
+
   try {
-    const { chainId, plan, currency } = req.body;
-    if (!chainId || !plan) {
-      return res.status(400).json({ success: false, error: 'chainId and plan required.' });
-    }
+    const { chainId, plan, currency } = body;
 
     const chain = await Chain.findOne({ _id: chainId, userId: req.userId });
     if (!chain) return res.status(404).json({ success: false, error: 'Chain not found.' });
 
     const price = config.pricing[plan];
     if (!price) return res.status(400).json({ success: false, error: 'Invalid plan.' });
+
+    // Check for existing pending payment for this chain
+    const existing = await Payment.findOne({
+      chainId: chain._id,
+      userId: req.userId,
+      status: 'pending',
+      expiresAt: { $gt: new Date() },
+    });
+    if (existing) {
+      return res.json({
+        success: true,
+        data: { payment: existing, payTo: config.paymentWallet, amount: price, currency: currency || 'ETH' },
+      });
+    }
 
     const payment = await Payment.create({
       userId: req.userId,
@@ -70,6 +73,7 @@ router.post('/create', authMiddleware, async (req, res) => {
         amount: price,
         currency: currency || 'ETH',
         expiresIn: '30 minutes',
+        instructions: `Send exactly ${price} ${currency || 'ETH'} to ${config.paymentWallet}`,
       },
     });
   } catch (err) {
@@ -78,13 +82,14 @@ router.post('/create', authMiddleware, async (req, res) => {
   }
 });
 
-// ── POST /api/payment/verify ─────────────────────────────
-router.post('/verify', authMiddleware, async (req, res) => {
+// ── POST /api/payment/verify ──────────────────────────────
+// 🔐 CRITICAL: verifies real blockchain transaction
+router.post('/verify', paymentLimiter, authMiddleware, async (req, res) => {
+  const body = validate(req, res, verifyPaymentSchema);
+  if (!body) return;
+
   try {
-    const { paymentId, txHash } = req.body;
-    if (!paymentId || !txHash) {
-      return res.status(400).json({ success: false, error: 'paymentId and txHash required.' });
-    }
+    const { paymentId, txHash } = body;
 
     const payment = await Payment.findOne({ _id: paymentId, userId: req.userId });
     if (!payment) return res.status(404).json({ success: false, error: 'Payment not found.' });
@@ -93,24 +98,64 @@ router.post('/verify', authMiddleware, async (req, res) => {
       return res.json({ success: true, data: { payment, message: 'Already confirmed.' } });
     }
 
-    // TODO: In production, verify txHash on-chain via ethers.js
-    // For now, mark as confirmed after receipt of hash
+    if (payment.status === 'failed') {
+      return res.status(400).json({ success: false, error: 'This payment failed. Please create a new one.' });
+    }
+
+    if (payment.expiresAt < new Date()) {
+      payment.status = 'failed';
+      await payment.save();
+      return res.status(400).json({ success: false, error: 'Payment expired. Please create a new payment.' });
+    }
+
+    // ── On-chain verification ─────────────────────────────
+    let verificationResult;
+    try {
+      verificationResult = await verifyPayment(
+        txHash,
+        payment.currency,
+        config.paymentWallet,
+        payment.amount
+      );
+    } catch (verifyErr) {
+      return res.status(400).json({
+        success: false,
+        error: `Payment verification failed: ${verifyErr.message}`,
+      });
+    }
+
+    // Check if txHash was already used for another payment (prevent double-spend)
+    const dupPayment = await Payment.findOne({ txHash, _id: { $ne: payment._id } });
+    if (dupPayment) {
+      return res.status(400).json({ success: false, error: 'This transaction was already used.' });
+    }
+
+    // Mark as confirmed
     payment.status = 'confirmed';
     payment.txHash = txHash;
     payment.confirmedAt = new Date();
+    payment.blockNumber = verificationResult.blockNumber;
+    payment.network = payment.currency;
     await payment.save();
+
+    // Upgrade user plan
+    await User.findByIdAndUpdate(req.userId, { plan: payment.plan });
 
     res.json({
       success: true,
-      data: { payment, message: 'Payment verified. You can now deploy to mainnet.' },
+      data: {
+        payment,
+        verification: verificationResult,
+        message: `Payment verified on-chain! ${verificationResult.confirmations} confirmations.`,
+      },
     });
   } catch (err) {
     console.error('Verify payment error:', err);
-    res.status(500).json({ success: false, error: 'Verification failed.' });
+    res.status(500).json({ success: false, error: 'Verification service error. Please try again.' });
   }
 });
 
-// ── GET /api/payment/history ─────────────────────────────
+// ── GET /api/payment/history ──────────────────────────────
 router.get('/history', authMiddleware, async (req, res) => {
   try {
     const payments = await Payment.find({ userId: req.userId })
@@ -118,8 +163,12 @@ router.get('/history', authMiddleware, async (req, res) => {
       .populate('chainId', 'name type');
     res.json({ success: true, data: { payments, total: payments.length } });
   } catch (err) {
-    res.status(500).json({ success: false, error: 'Failed to fetch payment history.' });
+    res.status(500).json({ success: false, error: 'Failed to fetch history.' });
   }
 });
+
+function authLimiterApply(req, res, next) {
+  paymentLimiter(req, res, next);
+}
 
 module.exports = router;

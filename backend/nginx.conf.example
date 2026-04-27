@@ -1,0 +1,73 @@
+# Nginx config for ChainForge VPS
+# Place this at: /etc/nginx/sites-available/chainforge
+# Then: ln -s /etc/nginx/sites-available/chainforge /etc/nginx/sites-enabled/
+# Then: certbot --nginx -d rpc.yourdomain.com (for SSL)
+
+# ── Upstream proxy for blockchain RPC endpoints ────────────
+# This proxies https://rpc.yourdomain.com/chain/{port} → http://localhost:{port}
+
+server {
+    listen 80;
+    server_name rpc.yourdomain.com;
+
+    # Redirect HTTP → HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name rpc.yourdomain.com;
+
+    # SSL certificates (managed by Certbot)
+    ssl_certificate     /etc/letsencrypt/live/rpc.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/rpc.yourdomain.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+
+    # Allow large request bodies (for eth_sendRawTransaction etc.)
+    client_max_body_size 10m;
+
+    # ── Route /chain/{port}/ → localhost:{port} ────────────
+    # Example: https://rpc.yourdomain.com/chain/9000/ → http://localhost:9000/
+    location ~ ^/chain/(\d+)/?(.*) {
+        set $rpc_port $1;
+        set $rpc_path $2;
+
+        # Security: only allow ports in chainforge range
+        if ($rpc_port !~ ^(9[0-9]{3}|[1-5][0-9]{4})$) {
+            return 403;
+        }
+
+        proxy_pass http://127.0.0.1:$rpc_port/$rpc_path$is_args$args;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket support
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400;
+
+        # CORS
+        add_header Access-Control-Allow-Origin *;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS";
+        add_header Access-Control-Allow-Headers "Content-Type, Authorization";
+
+        if ($request_method = OPTIONS) {
+            return 204;
+        }
+    }
+
+    # Health check endpoint
+    location /health {
+        return 200 '{"status":"ok"}';
+        add_header Content-Type application/json;
+    }
+}
