@@ -36,9 +36,21 @@ module.exports = {
     customConsensus: '0.5',
   },
 
-  // Docker (Railway service can run Docker-in-Docker or sidecar)
+  // Docker (local fallback)
   dockerEnabled: process.env.DOCKER_ENABLED === 'true',
   dockerHost: process.env.DOCKER_HOST || '/var/run/docker.sock',
+
+  // Hetzner VPS — for real blockchain node deployment
+  vps: {
+    host: process.env.VPS_HOST || null,          // e.g. '65.21.XX.XX'
+    port: parseInt(process.env.VPS_PORT || '22'),
+    user: process.env.VPS_USER || 'root',
+    // SSH private key (set as multi-line env var in Railway)
+    sshKey: process.env.VPS_SSH_KEY
+      ? process.env.VPS_SSH_KEY.replace(/\\n/g, '\n')
+      : null,
+    password: process.env.VPS_PASSWORD || null,  // alternative to SSH key
+  },
 
   // Chain monitor interval (ms)
   monitorInterval: parseInt(process.env.MONITOR_INTERVAL, 10) || 10000,

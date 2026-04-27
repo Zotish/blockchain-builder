@@ -4,6 +4,7 @@ const Chain = require('../models/Chain');
 const Deployment = require('../models/Deployment');
 const Payment = require('../models/Payment');
 const { deployChainNode, stopChainNode } = require('../services/dockerService');
+const { deployOnVPS, stopOnVPS, getContainerLogs, getContainerStatus, isVPSAvailable } = require('../services/vpsService');
 
 const router = express.Router();
 
@@ -137,20 +138,49 @@ router.post('/stop/:chainId', authMiddleware, async (req, res) => {
   }
 });
 
+// ── GET /api/deploy/logs/:chainId ───────────────────────
+router.get('/logs/:chainId', authMiddleware, async (req, res) => {
+  try {
+    const chain = await Chain.findOne({ _id: req.params.chainId, userId: req.userId });
+    if (!chain) return res.status(404).json({ success: false, error: 'Chain not found.' });
+
+    const logs = await getContainerLogs(chain.nodeInfo?.containerName, 100);
+    res.json({ success: true, data: { logs } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to fetch logs.' });
+  }
+});
+
+// ── GET /api/deploy/status/:chainId ─────────────────────
+router.get('/status/:chainId', authMiddleware, async (req, res) => {
+  try {
+    const chain = await Chain.findOne({ _id: req.params.chainId, userId: req.userId });
+    if (!chain) return res.status(404).json({ success: false, error: 'Chain not found.' });
+
+    const status = await getContainerStatus(chain.nodeInfo?.containerName);
+    res.json({ success: true, data: { status, chain: chain.status } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to fetch status.' });
+  }
+});
+
 // ── Async deployment runner ──────────────────────────────
 async function runDeployment(deployment, chain, io, network) {
   const emit = (event, data) => {
     io.to(`deployment:${deployment._id}`).emit(event, data);
   };
 
+  let progress = 0;
+
   const addLog = async (message, level = 'info') => {
+    progress = Math.min(progress + 11, 99);
     deployment.logs.push({ message, level, timestamp: new Date() });
-    // Persist every few logs to avoid too many writes
+    deployment.progress = progress;
     if (deployment.logs.length % 3 === 0) await deployment.save();
     emit('deployment:update', {
       deploymentId: deployment._id,
       log: message,
-      progress: deployment.progress,
+      progress,
       status: deployment.status,
     });
   };
@@ -159,39 +189,39 @@ async function runDeployment(deployment, chain, io, network) {
     deployment.status = 'deploying';
     await deployment.save();
 
-    // ── Docker deployment ────────────────────────────────
-    let progress = 0;
-    const { containerId, containerName, rpcPort, wsPort } = await deployChainNode(
-      chain,
-      network,
-      async (msg) => {
-        progress = Math.min(progress + 11, 99);
-        deployment.progress = progress;
-        await addLog(msg);
-      }
-    );
+    // ── Choose deployment strategy ────────────────────────
+    // Priority: 1) Hetzner VPS  2) Local Docker  3) Simulation
+    let result;
+    const vpsReady = await isVPSAvailable();
 
-    // ── Finalise ─────────────────────────────────────────
+    if (vpsReady) {
+      // 🏆 REAL deployment on Hetzner VPS
+      result = await deployOnVPS(chain, network, addLog);
+    } else {
+      // Fallback: local Docker or simulation
+      result = await deployChainNode(chain, network, addLog);
+    }
+
+    const { containerId, containerName, rpcPort, wsPort, vpsHost } = result;
+
+    // ── Build public endpoints ─────────────────────────────
+    // If on VPS → use VPS IP. If local → localhost
+    const host = vpsHost || process.env.VPS_HOST || 'localhost';
     const endpoints = {
-      rpc: process.env.NODE_ENV === 'production'
-        ? `https://${containerName}.chainforge.app`
-        : `http://localhost:${rpcPort}`,
-      ws: process.env.NODE_ENV === 'production'
-        ? `wss://${containerName}.chainforge.app/ws`
-        : `ws://localhost:${wsPort}`,
-      explorer: process.env.NODE_ENV === 'production'
-        ? `https://explorer-${containerName}.chainforge.app`
-        : `http://localhost:${rpcPort + 100}`,
+      rpc: `http://${host}:${rpcPort}`,
+      ws: `ws://${host}:${wsPort}`,
+      explorer: `http://${host}:${rpcPort + 100}`,
     };
 
     const nodeInfo = {
       nodeId: `chainforge-${chain._id.toString().slice(-8)}`,
       peerId: `16Uiu2HAm${Math.random().toString(36).slice(2, 15)}`,
-      chainId: chain.config.chainId,
+      chainId: chain.config?.chainId,
       containerId,
+      containerName,
     };
 
-    // Save deployment
+    // Persist
     deployment.status = 'running';
     deployment.progress = 100;
     deployment.endpoints = endpoints;
@@ -199,35 +229,35 @@ async function runDeployment(deployment, chain, io, network) {
     deployment.completedAt = new Date();
     await deployment.save();
 
-    // Save chain
     chain.status = 'deployed';
     chain.network = network;
     chain.endpoints = endpoints;
     chain.nodeInfo = { ...nodeInfo, containerName };
-    chain.stats = { blockHeight: 0, txCount: 0, peers: 0, gasPrice: '1000000000', lastSeen: new Date() };
+    chain.stats = {
+      blockHeight: 0, txCount: 0, peers: 0,
+      gasPrice: '1000000000', lastSeen: new Date(),
+    };
     await chain.save();
+
+    progress = 100;
+    await addLog('🎉 Blockchain is live!');
 
     emit('deployment:complete', {
       deploymentId: deployment._id,
       status: 'running',
       endpoints,
       nodeInfo,
+      deployedOn: vpsReady ? 'vps' : 'simulation',
     });
 
-    await addLog('🎉 Blockchain is live!');
   } catch (err) {
-    console.error('Deployment runner error:', err);
+    console.error('Deployment error:', err);
     deployment.status = 'failed';
     deployment.error = err.message;
     await deployment.save();
-
     chain.status = 'failed';
     await chain.save();
-
-    emit('deployment:failed', {
-      deploymentId: deployment._id,
-      error: err.message,
-    });
+    emit('deployment:failed', { deploymentId: deployment._id, error: err.message });
   }
 }
 
