@@ -1,0 +1,11 @@
+# Nixpacks build config for Railway
+# Tells Railway how to build the Node.js backend
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm ci --omit=dev"]
+
+[start]
+cmd = "node src/server.js"

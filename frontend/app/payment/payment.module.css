@@ -1,0 +1,377 @@
+/* Payment Page Styles */
+
+.paymentPage {
+  min-height: 100vh;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(10, 10, 26, 0.92);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 12px 0;
+}
+
+.headerInner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 22px;
+}
+
+.logoText { font-size: 20px; font-weight: 800; }
+.logoAccent {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.stepHeader {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.title {
+  font-size: 36px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  letter-spacing: -1px;
+}
+
+.subtitle {
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+/* Plan Cards */
+.plansGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 40px;
+}
+
+.planCard {
+  background: var(--gradient-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  position: relative;
+}
+
+.planCard:hover {
+  border-color: var(--border-accent);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-glow);
+}
+
+.planCardActive {
+  border-color: var(--primary-500);
+  box-shadow: var(--shadow-glow-strong);
+}
+
+.planPopular {
+  transform: scale(1.03);
+}
+
+.popularBadge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 16px;
+  background: var(--gradient-primary);
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+}
+
+.planIcon {
+  font-size: 42px;
+  margin-bottom: 12px;
+}
+
+.planName {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.planPrice {
+  margin-bottom: 24px;
+}
+
+.priceAmount {
+  font-size: 42px;
+  font-weight: 900;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.priceCurrency {
+  font-size: 18px;
+  color: var(--text-secondary);
+  margin-left: 6px;
+}
+
+.planFeatures {
+  list-style: none;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.planFeatures li {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Currency Section */
+.currencySection {
+  margin-bottom: 40px;
+}
+
+.currencySection h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.currencyGrid {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.currencyBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.currencyBtn:hover {
+  border-color: var(--border-accent);
+}
+
+.currencyBtnActive {
+  border-color: var(--primary-500);
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary-300);
+}
+
+.currencyIcon {
+  font-size: 20px;
+}
+
+/* Action Bar */
+.actionBar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 24px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.totalPrice {
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+
+.totalPrice strong {
+  font-size: 28px;
+  font-weight: 800;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-left: 12px;
+}
+
+/* Payment Step */
+.paymentCard {
+  max-width: 600px;
+  margin: 0 auto;
+  background: var(--gradient-card);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-xl);
+  padding: 40px;
+}
+
+.paymentInfo {
+  margin-bottom: 32px;
+}
+
+.paymentRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.paymentRow:last-child {
+  border-bottom: none;
+}
+
+.paymentRow span {
+  color: var(--text-muted);
+}
+
+.paymentAmount {
+  font-size: 20px;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.walletAddress {
+  margin-bottom: 32px;
+}
+
+.walletAddress label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.addressBox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.addressBox code {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--accent-cyan);
+  word-break: break-all;
+}
+
+.txSection {
+  margin-bottom: 32px;
+}
+
+.txHint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.paymentActions {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* Processing */
+.processingStep {
+  text-align: center;
+  padding: 80px 20px;
+}
+
+.processingStep h2 {
+  font-size: 24px;
+  margin-top: 24px;
+  margin-bottom: 8px;
+}
+
+.processingStep p {
+  color: var(--text-muted);
+}
+
+/* Success */
+.successStep {
+  text-align: center;
+  padding: 80px 20px;
+  animation: scaleIn 0.4s ease-out;
+}
+
+.successIcon {
+  font-size: 72px;
+  margin-bottom: 24px;
+  animation: float 2s ease-in-out infinite;
+}
+
+.successStep h2 {
+  font-size: 32px;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+
+.successStep p {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin-bottom: 32px;
+}
+
+.successActions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .plansGrid {
+    grid-template-columns: 1fr;
+    max-width: 400px;
+    margin: 0 auto 40px;
+  }
+  .planPopular {
+    transform: none;
+  }
+  .actionBar {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .paymentActions {
+    flex-direction: column;
+  }
+}
