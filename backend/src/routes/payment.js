@@ -11,53 +11,88 @@ const { verifyPayment } = require('../services/paymentVerifier');
 
 const router = express.Router();
 
-// ── Live price fetcher (CoinGecko free API) ───────────────
-const priceCache = { data: null, fetchedAt: 0 };
+// ── Price cache ─────────────────────────────────────────
+const priceCache = { data: null, fetchedAt: 0, source: null };
+const CACHE_TTL = 3 * 60 * 1000; // 3 min
 
-function httpsGet(url) {
+function httpsGet(url, headers = {}) {
   return new Promise((resolve, reject) => {
-    https.get(url, { timeout: 6000 }, (res) => {
+    const opts = { timeout: 7000, headers: { 'User-Agent': 'ChainForge/1.0', ...headers } };
+    https.get(url, opts, (res) => {
       let raw = '';
-      res.on('data', chunk => raw += chunk);
+      res.on('data', c => raw += c);
       res.on('end', () => {
         try { resolve(JSON.parse(raw)); }
-        catch (e) { reject(new Error('JSON parse failed')); }
+        catch { reject(new Error(`JSON parse failed (HTTP ${res.statusCode})`)); }
       });
     }).on('error', reject).on('timeout', () => reject(new Error('timeout')));
   });
 }
 
+// Source 1: CoinGecko (free or pro with COINGECKO_API_KEY)
+async function fetchCoinGecko() {
+  const key = process.env.COINGECKO_API_KEY;
+  const hdrs = key ? { 'x-cg-pro-api-key': key } : {};
+  const base = key ? 'https://pro-api.coingecko.com' : 'https://api.coingecko.com';
+  const j = await httpsGet(
+    `${base}/api/v3/simple/price?ids=ethereum,bitcoin,binancecoin,matic-network,tether,usd-coin,solana&vs_currencies=usd`,
+    hdrs
+  );
+  if (!j.ethereum?.usd) throw new Error('bad response');
+  return {
+    ETH: j.ethereum.usd,       BTC: j.bitcoin.usd,
+    BNB: j.binancecoin.usd,    MATIC: j['matic-network'].usd,
+    USDT: j.tether.usd,        USDC: j['usd-coin'].usd, SOL: j.solana.usd,
+  };
+}
+
+// Source 2: Binance (no key needed)
+async function fetchBinance() {
+  const pairs = ['ETHUSDT','BTCUSDT','BNBUSDT','MATICUSDT','SOLUSDT'];
+  const all = await Promise.all(
+    pairs.map(s => httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=${s}`))
+  );
+  const m = {};
+  all.forEach(r => r.symbol && (m[r.symbol] = parseFloat(r.price)));
+  if (!m.ETHUSDT) throw new Error('bad response');
+  return { ETH: m.ETHUSDT, BTC: m.BTCUSDT, BNB: m.BNBUSDT, MATIC: m.MATICUSDT, USDT: 1, USDC: 1, SOL: m.SOLUSDT };
+}
+
+// Source 3: CryptoCompare (free or with CRYPTOCOMPARE_API_KEY)
+async function fetchCryptoCompare() {
+  const key = process.env.CRYPTOCOMPARE_API_KEY;
+  const hdrs = key ? { 'authorization': `Apikey ${key}` } : {};
+  const j = await httpsGet(
+    'https://min-api.cryptocompare.com/data/pricemulti?fsyms=ETH,BTC,BNB,MATIC,USDT,USDC,SOL&tsyms=USD',
+    hdrs
+  );
+  if (!j.ETH?.USD) throw new Error('bad response');
+  return { ETH: j.ETH.USD, BTC: j.BTC.USD, BNB: j.BNB.USD, MATIC: j.MATIC.USD, USDT: j.USDT.USD, USDC: j.USDC.USD, SOL: j.SOL.USD };
+}
+
+// ── Multi-source price fetcher ────────────────────────────
 async function getLivePrices() {
   const now = Date.now();
-  if (priceCache.data && now - priceCache.fetchedAt < 5 * 60 * 1000) {
-    return priceCache.data;
-  }
-  try {
-    const json = await httpsGet(
-      'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin,binancecoin,matic-network,tether,usd-coin,solana&vs_currencies=usd'
-    );
-    const prices = {
-      ETH:   json['ethereum']?.usd       || null,
-      BTC:   json['bitcoin']?.usd        || null,
-      BNB:   json['binancecoin']?.usd    || null,
-      MATIC: json['matic-network']?.usd  || null,
-      USDT:  json['tether']?.usd         || null,
-      USDC:  json['usd-coin']?.usd       || null,
-      SOL:   json['solana']?.usd         || null,
-    };
-    // Only cache if we got real ETH price
-    if (prices.ETH) {
-      priceCache.data = prices;
-      priceCache.fetchedAt = now;
-      console.log(`💹 Live prices fetched: ETH=$${prices.ETH} BTC=$${prices.BTC}`);
+  if (priceCache.data && now - priceCache.fetchedAt < CACHE_TTL) return priceCache.data;
+
+  for (const { name, fn } of [
+    { name: 'CoinGecko',    fn: fetchCoinGecko    },
+    { name: 'Binance',      fn: fetchBinance      },
+    { name: 'CryptoCompare', fn: fetchCryptoCompare },
+  ]) {
+    try {
+      const prices = await fn();
+      priceCache.data = prices; priceCache.fetchedAt = now; priceCache.source = name;
+      console.log(`💹 [${name}] ETH=$${prices.ETH} BTC=$${prices.BTC}`);
+      return prices;
+    } catch (e) {
+      console.warn(`⚠️  [${name}] ${e.message}`);
     }
-    return prices;
-  } catch (err) {
-    console.warn('⚠️  CoinGecko fetch failed:', err.message, '— using cache or fallback');
-    // Return cached if available, else static fallback
-    if (priceCache.data) return priceCache.data;
-    return { ETH: null, BTC: null, BNB: null, MATIC: null, USDT: 1, USDC: 1, SOL: null };
   }
+
+  if (priceCache.data) { console.warn('Using stale cache'); return priceCache.data; }
+  console.warn('❌ All price sources failed');
+  return null;
 }
 
 // Convert ETH amount to any currency
