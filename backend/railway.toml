@@ -1,5 +1,12 @@
 [build]
-builder = "nixpacks"
+builder = "dockerfile"
+dockerfilePath = "backend/Dockerfile"
+watchPatterns = [
+  "backend/**",
+  "backend/package.json",
+  "backend/package-lock.json",
+  "backend/.env.example"
+]
 
 [deploy]
 startCommand = "node src/server.js"
