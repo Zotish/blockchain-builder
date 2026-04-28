@@ -349,8 +349,22 @@ console.log('Node info:', info);`,
 
 // Hyperledger Besu is EVM-compatible
 adapters.hyperledger = { ...adapters.evm, walletName: 'MetaMask (Besu)', walletIcon: '⬡' };
-// Custom defaults to EVM
-adapters.custom = { ...adapters.evm, walletName: 'MetaMask (Custom)', walletIcon: '⚙' };
+
+// Custom — dynamically resolved, default to EVM
+adapters.custom = {
+  ...adapters.evm,
+  walletName: 'Depends on base type',
+  walletIcon: '⚙',
+  connectWalletCode: `// Custom Chain — connection depends on your base type
+// If EVM-based:
+await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: 'CHAIN_ID_HEX', chainName: 'CHAIN_NAME', rpcUrls: ['RPC_URL'] }] });
+
+// If Substrate-based:
+// import { ApiPromise, WsProvider } from '@polkadot/api';
+// const api = await ApiPromise.create({ provider: new WsProvider('WS_URL') });
+
+// If you provided a custom Docker image, consult your chain's documentation for connection details.`,
+};
 
 
 // ── Helpers ──────────────────────────────────────────────
@@ -380,9 +394,19 @@ function randomHex(len) {
 }
 
 /**
- * Get the adapter for a chain type
+ * Get the adapter for a chain type.
+ * For custom chains, resolves based on customConfig.baseType if available.
  */
-function getChainAdapter(type) {
+function getChainAdapter(type, customConfig) {
+  if (type === 'custom' && customConfig?.baseType && adapters[customConfig.baseType]) {
+    // Use the base type's adapter but label it as "Custom"
+    const base = adapters[customConfig.baseType];
+    return {
+      ...base,
+      walletName: `${base.walletName} (Custom)`,
+      walletIcon: '⚙',
+    };
+  }
   return adapters[type] || adapters.evm;
 }
 

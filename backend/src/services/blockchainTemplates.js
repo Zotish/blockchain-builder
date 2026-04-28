@@ -198,12 +198,63 @@ docker run -d \\
   },
 
   // ─────────────────────────────────────────────────
-  // Custom — Falls back to Geth with custom config
+  // Custom — User brings their own Docker image/config
+  // Falls back to Geth if no custom config given
   // ─────────────────────────────────────────────────
   custom: {
-    image: 'ethereum/client-go:stable',
-    getDockerCmd: (cfg) => CHAIN_TEMPLATES.evm.getDockerCmd(cfg),
-    healthCheck: (rpcPort) => CHAIN_TEMPLATES.evm.healthCheck(rpcPort),
+    image: 'ethereum/client-go:stable', // default fallback
+    getDockerCmd: (cfg) => {
+      // If user provided a custom Docker image, use that
+      const image = cfg.customImage || cfg.customConfig?.dockerImage || 'ethereum/client-go:stable';
+      const customCmd = cfg.customConfig?.dockerCommand;
+      const baseType = cfg.customConfig?.baseType; // 'evm' | 'substrate' | 'cosmos' | 'solana'
+
+      // ── Option 1: Full custom Docker command from user ──
+      if (customCmd) {
+        return customCmd
+          .replace(/\{\{containerName\}\}/g, cfg.containerName)
+          .replace(/\{\{rpcPort\}\}/g, cfg.rpcPort)
+          .replace(/\{\{wsPort\}\}/g, cfg.wsPort)
+          .replace(/\{\{p2pPort\}\}/g, cfg.p2pPort)
+          .replace(/\{\{chainId\}\}/g, cfg.chainId)
+          .replace(/\{\{blockTime\}\}/g, cfg.blockTime || 5)
+          .replace(/\{\{dataDir\}\}/g, `/data/chainforge/${cfg.containerName}`);
+      }
+
+      // ── Option 2: Base type + custom image ──
+      if (baseType && CHAIN_TEMPLATES[baseType]) {
+        const baseCfg = { ...cfg };
+        const baseCmd = CHAIN_TEMPLATES[baseType].getDockerCmd(baseCfg);
+        // Replace the base image with user's custom image
+        if (cfg.customImage) {
+          const baseImage = CHAIN_TEMPLATES[baseType].image;
+          return baseCmd.replace(new RegExp(baseImage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), image);
+        }
+        return baseCmd;
+      }
+
+      // ── Option 3: Custom Docker image with minimal config ──
+      if (cfg.customImage && cfg.customImage !== 'ethereum/client-go:stable') {
+        return `
+docker run -d \\
+  --name ${cfg.containerName} \\
+  --restart unless-stopped \\
+  --memory="${cfg.memory || '1g'}" \\
+  --cpus="${cfg.cpus || '1.0'}" \\
+  -p ${cfg.rpcPort}:${cfg.customConfig?.internalRpcPort || 8545} \\
+  -p ${cfg.wsPort}:${cfg.customConfig?.internalWsPort || 8546} \\
+  -p ${cfg.p2pPort}:${cfg.customConfig?.internalP2pPort || 30303} \\
+  -v /data/chainforge/${cfg.containerName}:/data \\
+  --network chainforge-net \\
+  ${image} \\
+  ${cfg.customConfig?.startCommand || ''}
+`.trim();
+      }
+
+      // ── Fallback: standard EVM ──
+      return CHAIN_TEMPLATES.evm.getDockerCmd(cfg);
+    },
+    healthCheck: (rpcPort) => `curl -sf http://localhost:${rpcPort} -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' || curl -sf http://localhost:${rpcPort}/health || curl -sf http://localhost:${rpcPort}/api/v2/info`,
     defaultPorts: { rpcPort: 8545, wsPort: 8546, p2pPort: 30303 },
   },
 };

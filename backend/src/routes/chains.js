@@ -141,7 +141,7 @@ router.get('/:id/adapter', authMiddleware, async (req, res) => {
     if (!chain) return res.status(404).json({ success: false, error: 'Chain not found.' });
 
     const { getChainAdapter } = require('../services/chainAdapters');
-    const adapter = getChainAdapter(chain.type);
+    const adapter = getChainAdapter(chain.type, chain.customConfig);
 
     res.json({
       success: true,
