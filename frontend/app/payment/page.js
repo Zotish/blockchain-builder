@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '../../lib/api';
 import styles from './payment.module.css';
@@ -41,7 +41,7 @@ const CURRENCIES = [
   { id: 'USDC', name: 'USDC', icon: '💵', network: 'Ethereum' },
 ];
 
-export default function PaymentPage() {
+function PaymentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedPlan, setSelectedPlan] = useState('standard');
@@ -261,5 +261,12 @@ export default function PaymentPage() {
         )}
       </main>
     </div>
+  );
+}
+export default function PaymentPage() {
+  return (
+    <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0f172a', color: '#94a3b8' }}>Loading...</div>}>
+      <PaymentContent />
+    </Suspense>
   );
 }
