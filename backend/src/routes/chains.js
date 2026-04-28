@@ -6,7 +6,7 @@ const Deployment = require('../models/Deployment');
 const User = require('../models/User');
 
 const PLAN_CHAIN_LIMITS = {
-  free: 3, basic: 5, standard: 15, enterprise: 999,
+  free: 1, basic: 5, standard: 15, enterprise: 999,
 };
 
 const router = express.Router();

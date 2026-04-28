@@ -11,6 +11,7 @@ function AuthContent() {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [walletLoading, setWalletLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -49,6 +50,45 @@ function AuthContent() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMetaMask = async () => {
+    if (typeof window === 'undefined' || !window.ethereum) {
+      setError('MetaMask not found. Please install MetaMask extension first.');
+      return;
+    }
+    setWalletLoading(true);
+    setError('');
+    try {
+      // 1. Request account access
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const address = accounts[0];
+      // 2. Get nonce from backend
+      const nonceRes = await api.request(`/auth/wallet/nonce?address=${address}`);
+      if (!nonceRes.success) throw new Error(nonceRes.error || 'Failed to get nonce');
+      const { nonce } = nonceRes.data;
+      // 3. Sign the message
+      const message = `ChainForge Login\nAddress: ${address}\nNonce: ${nonce}`;
+      const signature = await window.ethereum.request({
+        method: 'personal_sign',
+        params: [message, address],
+      });
+      // 4. Verify signature on backend
+      const verifyRes = await api.walletAuth(address, signature, nonce);
+      if (verifyRes.success) {
+        router.push('/dashboard');
+      } else {
+        throw new Error(verifyRes.error || 'Wallet authentication failed');
+      }
+    } catch (err) {
+      if (err.code === 4001) {
+        setError('MetaMask: User rejected the request.');
+      } else {
+        setError(err.message || 'MetaMask connection failed');
+      }
+    } finally {
+      setWalletLoading(false);
     }
   };
 
@@ -162,8 +202,12 @@ function AuthContent() {
               <span>or</span>
             </div>
 
-            <button className={`btn btn-secondary ${styles.walletBtn}`}>
-              <span>🦊</span> Connect with MetaMask
+            <button
+              className={`btn btn-secondary ${styles.walletBtn}`}
+              onClick={handleMetaMask}
+              disabled={walletLoading}
+            >
+              <span>🦊</span> {walletLoading ? 'Connecting...' : 'Connect with MetaMask'}
             </button>
 
             <p className={styles.switchMode}>
