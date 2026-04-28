@@ -54,22 +54,27 @@ export default function ChainDetailPage() {
   const addToWallet = async () => {
     if (isEVM) {
       if (!window.ethereum) return alert('Please install MetaMask!');
+      const rpcUrl = chain.endpoints?.rpc;
+      if (!rpcUrl || rpcUrl.includes('localhost') || rpcUrl.includes('127.0.0.1')) {
+        return alert('⚠️ Chain is running in simulation mode. RPC endpoint is not publicly accessible yet.\n\nDeploy to a VPS to get a public RPC URL for MetaMask.');
+      }
+      const chainIdNum = chain.config?.chainId || 1337;
       try {
         await window.ethereum.request({
           method: 'wallet_addEthereumChain',
           params: [{
-            chainId: '0x' + (chain.config?.chainId || 1337).toString(16),
+            chainId: '0x' + Number(chainIdNum).toString(16),
             chainName: chain.name,
             nativeCurrency: {
               name: chain.token?.name || chain.name + ' Token',
               symbol: chain.token?.symbol || chain.config?.symbol || 'TOKEN',
               decimals: chain.token?.decimals || 18,
             },
-            rpcUrls: [chain.endpoints?.rpc],
+            rpcUrls: [rpcUrl],
           }],
         });
         alert('✅ Network added to MetaMask!');
-      } catch (err) { alert('Error: ' + err.message); }
+      } catch (err) { alert('MetaMask error: ' + err.message); }
     } else {
       window.open(adapterInfo?.walletUrl || '#', '_blank');
     }

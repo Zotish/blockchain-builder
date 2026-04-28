@@ -42,6 +42,9 @@ const { startChainMonitor } = require('./services/chainMonitor');
 const { startCronJobs } = require('./services/cronService');
 
 const app = express();
+
+// Railway runs behind a load balancer — trust proxy for rate limiting
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 
 // ── Allowed origins ──────────────────────────────────────
