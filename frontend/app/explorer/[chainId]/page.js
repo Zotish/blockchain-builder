@@ -49,7 +49,11 @@ export default function PublicExplorerPage() {
     if (!chain || chain.status !== 'deployed' || !chain.endpoints?.rpc) return;
 
     let mounted = true;
-    const rpcUrl = chain.endpoints.rpc;
+    
+    // Proxy the RPC request to avoid Mixed Content (HTTPS -> HTTP) blocks
+    const rpcUrl = process.env.NEXT_PUBLIC_API_URL 
+      ? `${process.env.NEXT_PUBLIC_API_URL}/rpc/${chain._id}`
+      : `${window.location.origin}/api/rpc/${chain._id}`;
 
     const fetchLatestData = async () => {
       try {

@@ -25,7 +25,8 @@ export default function ChainDetailPage() {
   const [faucetError, setFaucetError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
 
-  const stats = useChainStats(id);
+  const [stats, setStats] = useState(null);
+  useChainStats(id, useCallback((s) => setStats(s), []));
 
   const fetchChain = useCallback(async () => {
     try {
@@ -54,10 +55,12 @@ export default function ChainDetailPage() {
   const addToWallet = async () => {
     if (isEVM) {
       if (!window.ethereum) return alert('Please install MetaMask!');
-      const rpcUrl = chain.endpoints?.rpc;
-      if (!rpcUrl || rpcUrl.includes('localhost') || rpcUrl.includes('127.0.0.1')) {
-        return alert('⚠️ Chain is running in simulation mode. RPC endpoint is not publicly accessible yet.\n\nDeploy to a VPS to get a public RPC URL for MetaMask.');
-      }
+      
+      // Use the secure API RPC proxy (works in Netlify through rewrites to Railway)
+      const rpcUrl = process.env.NEXT_PUBLIC_API_URL 
+        ? `${process.env.NEXT_PUBLIC_API_URL}/rpc/${chain._id}`
+        : `${window.location.origin}/api/rpc/${chain._id}`;
+      
       const chainIdNum = chain.config?.chainId || 1337;
       try {
         await window.ethereum.request({
