@@ -201,22 +201,29 @@ router.get('/status/:chainId', authMiddleware, async (req, res) => {
 // ── Async deployment runner ──────────────────────────────
 async function runDeployment(deployment, chain, io, network) {
   const emit = (event, data) => {
-    io.to(`deployment:${deployment._id}`).emit(event, data);
+    if (io) io.to(`deployment:${deployment._id}`).emit(event, data);
   };
 
   let progress = 0;
+  let saving = false;
 
   const addLog = async (message, level = 'info') => {
     progress = Math.min(progress + 11, 99);
     deployment.logs.push({ message, level, timestamp: new Date() });
     deployment.progress = progress;
-    if (deployment.logs.length % 3 === 0) await deployment.save();
+    console.log(`  [deploy] ${message}`);
     emit('deployment:update', {
       deploymentId: deployment._id,
       log: message,
       progress,
       status: deployment.status,
     });
+    // Serialize saves to prevent ParallelSaveError
+    if (!saving && deployment.logs.length % 3 === 0) {
+      saving = true;
+      try { await deployment.save(); } catch (e) { /* skip parallel */ }
+      saving = false;
+    }
   };
 
   try {

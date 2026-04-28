@@ -91,12 +91,19 @@ function getVPSConfig() {
  */
 async function isVPSAvailable() {
   const config = getVPSConfig();
-  if (!config) return false;
+  if (!config) {
+    console.log('🖥️  VPS: no config (VPS_HOST not set)');
+    return false;
+  }
+  console.log(`🖥️  VPS: trying SSH to ${config.host}:${config.port} as ${config.username}`);
+  console.log(`🖥️  VPS: auth method = ${config.privateKey ? 'SSH_KEY' : config.password ? 'PASSWORD' : 'NONE'}`);
   try {
     const ssh = await getSSHConnection(config);
-    await runOnVPS(ssh, 'docker info > /dev/null 2>&1');
+    const result = await runOnVPS(ssh, 'docker --version', { allowFail: true });
+    console.log(`🖥️  VPS: docker = ${result}`);
     return true;
-  } catch {
+  } catch (err) {
+    console.error(`🖥️  VPS: SSH FAILED — ${err.message}`);
     return false;
   }
 }
