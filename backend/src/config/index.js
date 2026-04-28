@@ -4,11 +4,13 @@ module.exports = {
   // Railway injects PORT automatically
   port: parseInt(process.env.PORT, 10) || 5001,
 
-  // MongoDB — Railway plugin sets MONGO_URL or MONGODB_URL
+  // MongoDB — Railway plugin sets MONGODB_URI or MONGO_URL
   mongoUri:
+    process.env.MONGODB_URI ||
     process.env.MONGO_URL ||
     process.env.MONGODB_URL ||
     process.env.MONGO_URI ||
+    process.env.DATABASE_URL ||
     'mongodb://localhost:27017/chainforge',
 
   jwtSecret: process.env.JWT_SECRET || 'chainforge-dev-secret-CHANGE-IN-PROD',
