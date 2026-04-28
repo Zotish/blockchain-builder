@@ -243,14 +243,75 @@ router.get('/me', async (req, res) => {
   }
 });
 
-// ── POST /api/auth/wallet/nonce ────────────────────────────
-// Returns a unique nonce message for MetaMask to sign
-router.post('/wallet/nonce', (req, res) => {
-  const { walletAddress } = req.body;
-  if (!walletAddress) return res.status(400).json({ success: false, error: 'Wallet address required.' });
+// ── Nonce store (in-memory, 5 min expiry) ─────────────────
+const nonceStore = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of nonceStore.entries()) {
+    if (now - val.createdAt > 5 * 60 * 1000) nonceStore.delete(key);
+  }
+}, 60 * 1000);
+
+// ── GET /api/auth/wallet/nonce?address=0x... ───────────────
+router.get('/wallet/nonce', (req, res) => {
+  const address = req.query.address?.toLowerCase();
+  if (!address) return res.status(400).json({ success: false, error: 'address query param required.' });
+
   const nonce = require('crypto').randomBytes(16).toString('hex');
-  const message = `Sign in to ChainForge\n\nWallet: ${walletAddress}\nNonce: ${nonce}\nTime: ${new Date().toISOString()}`;
-  res.json({ success: true, data: { message, nonce } });
+  nonceStore.set(address, { nonce, createdAt: Date.now() });
+
+  res.json({ success: true, data: { nonce } });
+});
+
+// ── POST /api/auth/wallet/verify ──────────────────────────
+// Verifies MetaMask signature and returns JWT
+router.post('/wallet/verify', authLimiter, async (req, res) => {
+  try {
+    const { address, signature, nonce } = req.body;
+    if (!address || !signature || !nonce) {
+      return res.status(400).json({ success: false, error: 'address, signature, nonce required.' });
+    }
+
+    const addr = address.toLowerCase();
+
+    // Check nonce matches what we issued
+    const stored = nonceStore.get(addr);
+    if (!stored || stored.nonce !== nonce) {
+      return res.status(401).json({ success: false, error: 'Invalid or expired nonce.' });
+    }
+    nonceStore.delete(addr); // one-time use
+
+    // Verify signature
+    const message = `ChainForge Login\nAddress: ${addr}\nNonce: ${nonce}`;
+    let recovered;
+    try {
+      recovered = ethers.verifyMessage(message, signature);
+    } catch {
+      return res.status(400).json({ success: false, error: 'Invalid signature.' });
+    }
+
+    if (recovered.toLowerCase() !== addr) {
+      return res.status(401).json({ success: false, error: 'Signature mismatch.' });
+    }
+
+    // Find or create user
+    let user = await User.findOne({ walletAddress: addr });
+    if (!user) {
+      user = await User.create({
+        email: `${addr.slice(2, 10)}@wallet.chainforge`,
+        password: require('crypto').randomBytes(32).toString('hex'),
+        username: `user_${addr.slice(2, 8)}`,
+        walletAddress: addr,
+        isVerified: true,
+      });
+    }
+
+    const token = makeToken(user);
+    res.json({ success: true, data: { user: user.toSafeObject(), token } });
+  } catch (err) {
+    console.error('Wallet verify error:', err);
+    res.status(500).json({ success: false, error: 'Wallet authentication failed.' });
+  }
 });
 
 module.exports = router;

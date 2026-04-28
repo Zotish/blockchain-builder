@@ -63,20 +63,31 @@ function AuthContent() {
     try {
       // 1. Request account access
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-      const address = accounts[0];
-      // 2. Get nonce from backend
+      const address = accounts[0].toLowerCase();
+
+      // 2. Get nonce from backend (GET with query param)
       const nonceRes = await api.request(`/auth/wallet/nonce?address=${address}`);
       if (!nonceRes.success) throw new Error(nonceRes.error || 'Failed to get nonce');
       const { nonce } = nonceRes.data;
-      // 3. Sign the message
+
+      // 3. Sign the message (must match backend exactly)
       const message = `ChainForge Login\nAddress: ${address}\nNonce: ${nonce}`;
       const signature = await window.ethereum.request({
         method: 'personal_sign',
         params: [message, address],
       });
-      // 4. Verify signature on backend
-      const verifyRes = await api.walletAuth(address, signature, nonce);
+
+      // 4. Verify on backend → POST /auth/wallet/verify
+      const verifyRes = await api.request('/auth/wallet/verify', {
+        method: 'POST',
+        body: JSON.stringify({ address, signature, nonce }),
+      });
+
       if (verifyRes.success) {
+        // Save token same as normal login
+        if (verifyRes.data?.token) {
+          api.setToken(verifyRes.data.token);
+        }
         router.push('/dashboard');
       } else {
         throw new Error(verifyRes.error || 'Wallet authentication failed');
