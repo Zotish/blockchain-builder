@@ -109,16 +109,22 @@ function PaymentContent() {
   };
 
   const getUsdValue = () => {
+    if (convertedAmount?.usdValue) return parseFloat(convertedAmount.usdValue).toFixed(2);
     const eth = parseFloat(getTotalEth());
-    const ethUsd = livePrices.ETH || 3000;
+    const ethUsd = livePrices?.ETH;
+    if (!ethUsd) return null;
     return (eth * ethUsd).toFixed(2);
   };
 
   const getDisplayAmount = () => {
-    if (selectedCurrency === 'ETH') return `${getTotalEth()} ETH`;
-    if (convertedAmount) return `${convertedAmount.convertedAmount} ${selectedCurrency}`;
     if (loadingConvert) return 'Calculating...';
-    return `${getTotalEth()} ETH`;
+    if (selectedCurrency === 'ETH') return `${getTotalEth()} ETH`;
+    // If converted amount is available and not null
+    if (convertedAmount?.convertedAmount && convertedAmount.convertedAmount !== 'null') {
+      return `${convertedAmount.convertedAmount} ${selectedCurrency}`;
+    }
+    // Fallback: show ETH amount with note
+    return `${getTotalEth()} ETH (price loading...)`;
   };
 
   const handleProceedToPayment = async () => {
@@ -300,7 +306,7 @@ function PaymentContent() {
                     {loadingConvert ? 'Calculating...' : getDisplayAmount()}
                   </strong>
                 </div>
-                {livePrices.ETH && (
+                {getUsdValue() && (
                   <div className={styles.usdEquiv}>≈ ${getUsdValue()} USD</div>
                 )}
                 {convertedAmount && selectedCurrency !== 'ETH' && (
