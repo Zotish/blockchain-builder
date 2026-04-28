@@ -1,3 +1,4 @@
+const https = require('https');
 const express = require('express');
 const authMiddleware = require('../middleware/auth');
 const { paymentLimiter } = require('../middleware/rateLimiter');
@@ -11,8 +12,20 @@ const { verifyPayment } = require('../services/paymentVerifier');
 const router = express.Router();
 
 // ── Live price fetcher (CoinGecko free API) ───────────────
-// Cache prices for 5 minutes to avoid rate limits
 const priceCache = { data: null, fetchedAt: 0 };
+
+function httpsGet(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, { timeout: 6000 }, (res) => {
+      let raw = '';
+      res.on('data', chunk => raw += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(raw)); }
+        catch (e) { reject(new Error('JSON parse failed')); }
+      });
+    }).on('error', reject).on('timeout', () => reject(new Error('timeout')));
+  });
+}
 
 async function getLivePrices() {
   const now = Date.now();
@@ -20,26 +33,30 @@ async function getLivePrices() {
     return priceCache.data;
   }
   try {
-    const res = await fetch(
-      'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin,binancecoin,matic-network,tether,usd-coin,solana&vs_currencies=usd',
-      { signal: AbortSignal.timeout(5000) }
+    const json = await httpsGet(
+      'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin,binancecoin,matic-network,tether,usd-coin,solana&vs_currencies=usd'
     );
-    const json = await res.json();
     const prices = {
-      ETH:  json['ethereum']?.usd      || 3000,
-      BTC:  json['bitcoin']?.usd       || 60000,
-      BNB:  json['binancecoin']?.usd   || 400,
-      MATIC:json['matic-network']?.usd || 1,
-      USDT: json['tether']?.usd        || 1,
-      USDC: json['usd-coin']?.usd      || 1,
-      SOL:  json['solana']?.usd        || 150,
+      ETH:   json['ethereum']?.usd       || null,
+      BTC:   json['bitcoin']?.usd        || null,
+      BNB:   json['binancecoin']?.usd    || null,
+      MATIC: json['matic-network']?.usd  || null,
+      USDT:  json['tether']?.usd         || null,
+      USDC:  json['usd-coin']?.usd       || null,
+      SOL:   json['solana']?.usd         || null,
     };
-    priceCache.data = prices;
-    priceCache.fetchedAt = now;
+    // Only cache if we got real ETH price
+    if (prices.ETH) {
+      priceCache.data = prices;
+      priceCache.fetchedAt = now;
+      console.log(`💹 Live prices fetched: ETH=$${prices.ETH} BTC=$${prices.BTC}`);
+    }
     return prices;
-  } catch {
-    // Fallback static prices if API fails
-    return { ETH: 3000, BTC: 60000, BNB: 400, MATIC: 1, USDT: 1, USDC: 1, SOL: 150 };
+  } catch (err) {
+    console.warn('⚠️  CoinGecko fetch failed:', err.message, '— using cache or fallback');
+    // Return cached if available, else static fallback
+    if (priceCache.data) return priceCache.data;
+    return { ETH: null, BTC: null, BNB: null, MATIC: null, USDT: 1, USDC: 1, SOL: null };
   }
 }
 
@@ -47,7 +64,8 @@ async function getLivePrices() {
 async function convertFromEth(ethAmount, targetCurrency) {
   const prices = await getLivePrices();
   const ethUsd = prices['ETH'];
-  const targetUsd = prices[targetCurrency] || ethUsd;
+  const targetUsd = prices[targetCurrency];
+  if (!ethUsd || !targetUsd) return null; // price unavailable
   const usdAmount = parseFloat(ethAmount) * ethUsd;
   return (usdAmount / targetUsd).toFixed(6);
 }
