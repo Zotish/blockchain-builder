@@ -4,9 +4,14 @@ const { validate, createChainSchema } = require('../middleware/validate');
 const Chain = require('../models/Chain');
 const Deployment = require('../models/Deployment');
 const User = require('../models/User');
+const config = require('../config');
 
-const PLAN_CHAIN_LIMITS = {
-  free: 1, basic: 5, standard: 15, enterprise: 999,
+// Plan limits from config (fallback if config not loaded)
+const PLAN_LIMITS = config.plans || {
+  free:       { testnets: 1, mainnets: 0, validatorNodes: 0 },
+  basic:      { testnets: 3, mainnets: 1, validatorNodes: 1 },
+  standard:   { testnets: 10, mainnets: 2, validatorNodes: 3 },
+  enterprise: { testnets: 50, mainnets: 5, validatorNodes: 10 },
 };
 
 const router = express.Router();
@@ -41,16 +46,34 @@ router.post('/', authMiddleware, async (req, res) => {
   if (!body) return;
 
   try {
-    // Enforce plan limits
     const user = await User.findById(req.userId);
-    const limit = PLAN_CHAIN_LIMITS[user?.plan || 'free'];
-    const existingCount = await Chain.countDocuments({ userId: req.userId });
+    const plan = user?.plan || 'free';
+    const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
 
-    if (existingCount >= limit) {
-      return res.status(403).json({
-        success: false,
-        error: `Your ${user?.plan || 'free'} plan allows max ${limit} chains. Upgrade to create more.`,
-      });
+    // Count existing chains by network type
+    const testnetCount = await Chain.countDocuments({ userId: req.userId, network: { $ne: 'mainnet' } });
+    const mainnetCount = await Chain.countDocuments({ userId: req.userId, network: 'mainnet' });
+
+    const isMainnet = body.network === 'mainnet';
+
+    if (isMainnet) {
+      if (mainnetCount >= limits.mainnets) {
+        return res.status(403).json({
+          success: false,
+          error: `Your ${plan} plan allows max ${limits.mainnets} mainnet(s). Upgrade or purchase add-ons.`,
+          currentCount: mainnetCount,
+          limit: limits.mainnets,
+        });
+      }
+    } else {
+      if (testnetCount >= limits.testnets) {
+        return res.status(403).json({
+          success: false,
+          error: `Your ${plan} plan allows max ${limits.testnets} testnet(s). Upgrade to create more.`,
+          currentCount: testnetCount,
+          limit: limits.testnets,
+        });
+      }
     }
 
     const { name, type, template, chainId, symbol, consensus, blockTime, blockGasLimit, networkType, token, governance, customConfig } = body;
