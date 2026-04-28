@@ -215,7 +215,7 @@ export default function DashboardPage() {
                         🚀 Launch Mainnet
                       </button>
                     )}
-                    <button className="btn btn-ghost btn-sm" onClick={() => router.push(`/explorer?chain=${id}`)}>🔍</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => router.push(`/explorer/${id}`)}>🔍 Explorer</button>
                     <button className="btn btn-ghost btn-sm" onClick={() => deleteChain(id)} style={{ color: 'var(--accent-rose)' }}>🗑️</button>
                   </div>
                 </div>

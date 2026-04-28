@@ -103,13 +103,16 @@ class ApiClient {
     this.clearToken();
   }
 
-  // Chains
   async getChains() {
     return this.request('/chains');
   }
 
   async getChain(id) {
     return this.request(`/chains/${id}`);
+  }
+
+  async getPublicChain(id) {
+    return this.request(`/chains/public/${id}`);
   }
 
   async createChain(chainData) {

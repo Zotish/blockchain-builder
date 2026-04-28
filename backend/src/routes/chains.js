@@ -27,6 +27,35 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
+// ── GET /api/chains/public/:id ──────────────────────────
+router.get('/public/:id', async (req, res) => {
+  try {
+    const chain = await Chain.findById(req.params.id).select('-config.genesisData'); // Exclude heavy data if any
+    if (!chain) return res.status(404).json({ success: false, error: 'Chain not found.' });
+
+    // Only return limited info for public
+    const publicChain = {
+      _id: chain._id,
+      name: chain.name,
+      type: chain.type,
+      network: chain.network,
+      status: chain.status,
+      config: {
+        chainId: chain.config?.chainId,
+        blockTime: chain.config?.blockTime,
+        consensus: chain.config?.consensus,
+        symbol: chain.config?.symbol,
+      },
+      token: chain.token,
+      endpoints: chain.endpoints,
+    };
+
+    res.json({ success: true, data: { chain: publicChain } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to fetch public chain info.' });
+  }
+});
+
 // ── GET /api/chains/:id ──────────────────────────────────
 router.get('/:id', authMiddleware, async (req, res) => {
   try {

@@ -200,6 +200,15 @@ export default function ChainDetailPage() {
                       </button>
                     </div>
                   </div>
+                  <div className={styles.endpointRow}>
+                    <span className={styles.endpointLabel}>Public Explorer</span>
+                    <div className={styles.endpointValue}>
+                      <code>{typeof window !== 'undefined' ? `${window.location.origin}/explorer/${chain._id}` : `/explorer/${chain._id}`}</code>
+                      <button className="btn btn-ghost btn-sm" style={{ padding: '0 8px', minHeight: 'auto', height: '24px' }} onClick={() => window.open(`/explorer/${chain._id}`, '_blank')}>
+                        ↗️
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Wallet Connect Button — works for ALL chain types */}
@@ -301,7 +310,20 @@ export default function ChainDetailPage() {
 
         {/* ─── EXPLORER TAB ────────────────────────────── */}
         {activeTab === 'explorer' && (
-          <LiveExplorer chain={chain} stats={liveStats} />
+          <div className={styles.card} style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--text-main)' }}>🌐 Public Block Explorer</h2>
+            <p style={{ color: 'var(--text-dim)', marginBottom: '2rem' }}>
+              We've upgraded to a standalone, full-screen public explorer (Etherscan-style) for your blockchain. 
+              Share this link with your community.
+            </p>
+            <button 
+              className="btn btn-primary" 
+              onClick={() => window.open(`/explorer/${chain._id}`, '_blank')}
+              style={{ padding: '0.75rem 2rem', fontSize: '1.1rem' }}
+            >
+              Open {chain.name}Scan ↗️
+            </button>
+          </div>
         )}
 
         {/* ─── CONFIG TAB ──────────────────────────────── */}
