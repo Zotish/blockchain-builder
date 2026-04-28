@@ -127,8 +127,22 @@ export default function PublicExplorerPage() {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (!searchQuery) return;
-    alert(`Search for ${searchQuery} not fully implemented yet in this preview.`);
+    const query = searchQuery.trim();
+    if (!query) return;
+    
+    // Determine type based on query
+    if (/^0x[0-9a-fA-F]{64}$/.test(query)) {
+      // 66 chars: Tx Hash or Block Hash. Defaulting to tx
+      router.push(`/explorer/${chainId}/tx/${query}`);
+    } else if (/^0x[0-9a-fA-F]{40}$/.test(query)) {
+      // 42 chars: Address
+      router.push(`/explorer/${chainId}/address/${query}`);
+    } else if (/^\d+$/.test(query)) {
+      // Numbers: Block Number
+      router.push(`/explorer/${chainId}/block/${query}`);
+    } else {
+      alert('Invalid search query. Please enter a valid Address, Tx Hash, or Block Number.');
+    }
   };
 
   const truncateHash = (hash) => hash ? `${hash.slice(0, 10)}...${hash.slice(-8)}` : '';
