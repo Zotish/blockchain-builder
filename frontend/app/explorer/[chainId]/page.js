@@ -191,9 +191,8 @@ export default function PublicExplorerPage() {
           </div>
           <div className={styles.navLinks}>
             <span className={styles.navLinkActive} onClick={() => router.push(`/explorer/${chainId}`)}>Home</span>
-            <span className={styles.navLink} onClick={() => alert('Blockchain section coming soon!')}>Blockchain</span>
-            <span className={styles.navLink} onClick={() => alert('Tokens section coming soon!')}>Tokens</span>
-            <span className={styles.navLink} onClick={() => alert('Misc section coming soon!')}>Misc</span>
+            <span className={styles.navLink} onClick={() => router.push(`/explorer/${chainId}/bridge`)}>Bridge</span>
+            <span className={styles.navLink} onClick={() => router.push(`/explorer/${chainId}/staking`)}>Staking</span>
           </div>
         </div>
       </header>
