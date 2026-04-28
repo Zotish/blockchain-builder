@@ -1,8 +1,9 @@
-# Next.js plugin handles all routing — no manual redirects needed
+# Netlify build settings for Next.js frontend
 
 [build]
+  base    = "frontend"
   command = "npm run build"
-  publish = ".next"
+  publish = "frontend/.next"
 
 [build.environment]
   NODE_VERSION            = "20"
