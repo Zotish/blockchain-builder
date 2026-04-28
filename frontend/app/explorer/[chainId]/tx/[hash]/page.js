@@ -115,7 +115,7 @@ export default function TxDetailsPage() {
       {/* Header */}
       <header className={styles.header}>
         <div className={styles.headerContainer}>
-          <div className={styles.brand} onClick={() => router.push(`/explorer/${chainId}`)}>
+          <div className={styles.brand} onClick={() => router.push(`/explorer/${chainId}`)} style={{ cursor: 'pointer' }}>
             <div className={styles.logoIcon}>⛓️</div>
             <div className={styles.brandName}>
               {chain.name} <span className={styles.scanText}>Scan</span>
@@ -134,7 +134,10 @@ export default function TxDetailsPage() {
             </div>
           </form>
           <div className={styles.navLinks}>
-            <span className={styles.navLink} onClick={() => router.push(`/explorer/${chainId}`)}>Home</span>
+            <span className={styles.navLinkActive} onClick={() => router.push(`/explorer/${chainId}`)}>Home</span>
+            <span className={styles.navLink} onClick={() => alert('Blockchain section coming soon!')}>Blockchain</span>
+            <span className={styles.navLink} onClick={() => alert('Tokens section coming soon!')}>Tokens</span>
+            <span className={styles.navLink} onClick={() => alert('Misc section coming soon!')}>Misc</span>
           </div>
         </div>
       </header>

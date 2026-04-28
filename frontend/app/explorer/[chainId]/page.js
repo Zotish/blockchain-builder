@@ -190,10 +190,10 @@ export default function PublicExplorerPage() {
             </div>
           </div>
           <div className={styles.navLinks}>
-            <span className={styles.navLinkActive}>Home</span>
-            <span className={styles.navLink}>Blockchain</span>
-            <span className={styles.navLink}>Tokens</span>
-            <span className={styles.navLink}>Misc</span>
+            <span className={styles.navLinkActive} onClick={() => router.push(`/explorer/${chainId}`)}>Home</span>
+            <span className={styles.navLink} onClick={() => alert('Blockchain section coming soon!')}>Blockchain</span>
+            <span className={styles.navLink} onClick={() => alert('Tokens section coming soon!')}>Tokens</span>
+            <span className={styles.navLink} onClick={() => alert('Misc section coming soon!')}>Misc</span>
           </div>
         </div>
       </header>
@@ -288,14 +288,14 @@ export default function PublicExplorerPage() {
                     <div className={styles.rowLeft}>
                       <div className={styles.iconBox}>Bk</div>
                       <div>
-                        <div className={styles.primaryLink}>{parseInt(block.number, 16)}</div>
+                        <div className={styles.primaryLink} onClick={() => router.push(`/explorer/${chainId}/block/${parseInt(block.number, 16)}`)}>{parseInt(block.number, 16)}</div>
                         <div className={styles.subText}>{timeAgo(block.timestamp)}</div>
                       </div>
                     </div>
                     <div className={styles.rowMiddle}>
-                      <div>Validated By <span className={styles.primaryLink}>{truncateAddr(block.miner)}</span></div>
+                      <div>Validated By <span className={styles.primaryLink} onClick={() => router.push(`/explorer/${chainId}/address/${block.miner}`)}>{truncateAddr(block.miner)}</span></div>
                       <div className={styles.subText}>
-                        <span className={styles.primaryLink}>{block.transactions?.length || 0} txns</span> in {chain.config?.blockTime} secs
+                        <span className={styles.primaryLink} onClick={() => router.push(`/explorer/${chainId}/block/${parseInt(block.number, 16)}`)}>{block.transactions?.length || 0} txns</span> in {chain.config?.blockTime} secs
                       </div>
                     </div>
                     <div className={styles.rowRight}>
@@ -324,13 +324,13 @@ export default function PublicExplorerPage() {
                     <div className={styles.rowLeft}>
                       <div className={styles.iconBoxTx}>Tx</div>
                       <div>
-                        <div className={styles.primaryLink}>{truncateHash(tx.hash)}</div>
+                        <div className={styles.primaryLink} onClick={() => router.push(`/explorer/${chainId}/tx/${tx.hash}`)}>{truncateHash(tx.hash)}</div>
                         <div className={styles.subText}>{timeAgo(tx.timestamp)}</div>
                       </div>
                     </div>
                     <div className={styles.rowMiddle}>
-                      <div>From <span className={styles.primaryLink}>{truncateAddr(tx.from)}</span></div>
-                      <div>To <span className={styles.primaryLink}>{truncateAddr(tx.to)}</span></div>
+                      <div>From <span className={styles.primaryLink} onClick={() => router.push(`/explorer/${chainId}/address/${tx.from}`)}>{truncateAddr(tx.from)}</span></div>
+                      <div>To {tx.to ? <span className={styles.primaryLink} onClick={() => router.push(`/explorer/${chainId}/address/${tx.to}`)}>{truncateAddr(tx.to)}</span> : 'Contract Creation'}</div>
                     </div>
                     <div className={styles.rowRight}>
                       <div className={styles.badgeSuccess}>
