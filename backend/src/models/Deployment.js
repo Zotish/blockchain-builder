@@ -49,6 +49,7 @@ const deploymentSchema = new mongoose.Schema(
       peerId: { type: String },
       chainId: { type: Number },
       containerId: { type: String },
+      containerName: { type: String },
     },
     logs: [logEntrySchema],
     error: { type: String, default: null },

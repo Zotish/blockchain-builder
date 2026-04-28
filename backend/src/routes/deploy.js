@@ -11,8 +11,31 @@ const router = express.Router();
 // ── POST /api/deploy/testnet/:chainId ────────────────────
 router.post('/testnet/:chainId', authMiddleware, async (req, res) => {
   try {
+    console.log(`🚀 Deploy testnet request: chainId=${req.params.chainId} userId=${req.userId}`);
+
     const chain = await Chain.findOne({ _id: req.params.chainId, userId: req.userId });
-    if (!chain) return res.status(404).json({ success: false, error: 'Chain not found.' });
+    if (!chain) {
+      console.log('❌ Chain not found');
+      return res.status(404).json({ success: false, error: 'Chain not found.' });
+    }
+
+    console.log(`📋 Chain found: ${chain.name} (${chain.type})`);
+
+    // Check if already deploying/deployed
+    const existingDeploy = await Deployment.findOne({
+      chainId: chain._id,
+      status: { $in: ['initializing', 'deploying', 'running'] },
+    });
+    if (existingDeploy) {
+      console.log('⚠️  Already deployed/deploying');
+      return res.json({
+        success: true,
+        data: {
+          deployment: existingDeploy,
+          message: 'Chain is already deploying or deployed.',
+        },
+      });
+    }
 
     // Create deployment record
     const deployment = await Deployment.create({
@@ -24,6 +47,8 @@ router.post('/testnet/:chainId', authMiddleware, async (req, res) => {
       config: chain.config,
     });
 
+    console.log(`📝 Deployment record created: ${deployment._id}`);
+
     // Update chain status
     chain.status = 'deploying';
     chain.network = 'testnet';
@@ -31,20 +56,29 @@ router.post('/testnet/:chainId', authMiddleware, async (req, res) => {
 
     const io = req.app.get('io');
 
+    // Check VPS availability upfront for better error message
+    const vpsReady = await isVPSAvailable();
+    console.log(`🖥️  VPS available: ${vpsReady}`);
+
     // Kick off async deployment (non-blocking)
-    runDeployment(deployment, chain, io, 'testnet').catch(console.error);
+    runDeployment(deployment, chain, io, 'testnet').catch(err => {
+      console.error('🔥 runDeployment crashed:', err.message, err.stack);
+    });
 
     res.status(202).json({
       success: true,
       data: {
         deployment,
+        deployedOn: vpsReady ? 'hetzner-vps' : 'simulation',
         wsChannel: `deployment:${deployment._id}`,
-        message: 'Testnet deployment initiated. Connect WebSocket for live logs.',
+        message: vpsReady
+          ? 'Deploying on Hetzner VPS. Real blockchain node coming up!'
+          : 'Deploying in simulation mode (VPS not reachable).',
       },
     });
   } catch (err) {
-    console.error('Deploy testnet error:', err);
-    res.status(500).json({ success: false, error: 'Deployment failed to start.' });
+    console.error('❌ Deploy testnet error:', err.message, err.stack);
+    res.status(500).json({ success: false, error: `Deployment failed: ${err.message}` });
   }
 });
 
