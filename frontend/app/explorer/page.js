@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '../../lib/api';
 import styles from './explorer.module.css';
@@ -41,7 +41,8 @@ function generateMockTxs(count = 15) {
   return txs;
 }
 
-export default function ExplorerPage() {
+// Inner component — uses useSearchParams, must be inside Suspense
+function ExplorerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeView, setActiveView] = useState('blocks');
@@ -244,5 +245,17 @@ export default function ExplorerPage() {
         )}
       </main>
     </div>
+  );
+}
+// Outer page — wraps ExplorerContent in Suspense boundary
+export default function ExplorerPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#94a3b8' }}>
+        Loading Explorer...
+      </div>
+    }>
+      <ExplorerContent />
+    </Suspense>
   );
 }
