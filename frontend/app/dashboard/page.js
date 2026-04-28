@@ -192,7 +192,7 @@ export default function DashboardPage() {
               return (
                 <div key={id} className={styles.chainRow}>
                   <div className={styles.chainIcon}>{getTypeIcon(chain.type)}</div>
-                  <div className={styles.chainInfo}>
+                  <div className={styles.chainInfo} onClick={() => router.push(`/chain/${id}`)} style={{ cursor: 'pointer' }}>
                     <h3 className={styles.chainName}>{chain.name}</h3>
                     <div className={styles.chainMeta}>
                       <span>{chain.type?.toUpperCase()}</span>
@@ -209,6 +209,7 @@ export default function DashboardPage() {
                     <span className={`badge badge-${chain.network === 'mainnet' ? 'success' : 'info'}`}>{chain.network}</span>
                   </div>
                   <div className={styles.chainActions}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => router.push(`/chain/${id}`)}>📡 Details</button>
                     {chain.status === 'deployed' && chain.network === 'testnet' && (
                       <button className="btn btn-primary btn-sm" onClick={() => router.push(`/payment?chain=${id}`)}>
                         🚀 Launch Mainnet

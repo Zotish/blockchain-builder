@@ -1,0 +1,111 @@
+.page {
+  display: flex; min-height: 100vh; background: #06060f; color: #e2e8f0;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 260px; min-height: 100vh; background: rgba(10, 10, 25, 0.95);
+  border-right: 1px solid rgba(99, 102, 241, 0.1); padding: 24px 16px;
+  position: fixed; top: 0; left: 0; overflow-y: auto; display: flex; flex-direction: column;
+}
+.sidebarHeader {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer;
+  margin-bottom: 24px;
+}
+.logo { font-size: 28px; }
+.logoText { font-size: 20px; font-weight: 800; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.nav { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.navLabel { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #475569; margin: 16px 0 6px 12px; font-weight: 700; }
+.navItem {
+  text-align: left; padding: 8px 12px; background: none; border: none; border-radius: 8px;
+  color: #94a3b8; font-size: 13px; cursor: pointer; transition: all 0.15s; font-weight: 500;
+}
+.navItem:hover { background: rgba(99, 102, 241, 0.08); color: #e2e8f0; }
+.navActive { background: rgba(99, 102, 241, 0.15) !important; color: #fff !important; font-weight: 600; }
+.backToDash {
+  margin-top: auto; padding: 10px 12px; background: none; border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 8px; color: #6366f1; cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.2s;
+}
+.backToDash:hover { background: rgba(99, 102, 241, 0.1); }
+
+/* Main */
+.main {
+  flex: 1; margin-left: 260px; padding: 32px 48px; max-width: 900px;
+}
+.baseUrl {
+  display: flex; align-items: center; gap: 12px; background: rgba(15, 15, 35, 0.6);
+  border: 1px solid rgba(99, 102, 241, 0.12); border-radius: 10px; padding: 12px 16px;
+  margin-bottom: 32px;
+}
+.baseUrl span { font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+.baseUrl code { font-size: 14px; color: #818cf8; font-family: 'JetBrains Mono', monospace; }
+
+.sectionTitle { font-size: 28px; font-weight: 800; margin: 0 0 8px; color: #fff; }
+.sectionDesc { color: #94a3b8; font-size: 15px; margin-bottom: 24px; line-height: 1.6; }
+
+/* Endpoint */
+.endpoint {
+  background: rgba(15, 15, 35, 0.5); border: 1px solid rgba(99, 102, 241, 0.1);
+  border-radius: 14px; padding: 20px; margin-bottom: 16px;
+  transition: border-color 0.2s;
+}
+.endpoint:hover { border-color: rgba(99, 102, 241, 0.25); }
+.endpointHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.method {
+  padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.methodPOST { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.methodGET { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+.methodPUT { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.methodDELETE { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+.methodWS { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+.path { font-size: 14px; color: #e2e8f0; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+.authBadge { font-size: 11px; color: #fbbf24; font-weight: 600; }
+.endpointDesc { color: #94a3b8; font-size: 14px; margin: 0 0 12px; }
+.note {
+  background: rgba(99, 102, 241, 0.08); border-left: 3px solid #6366f1;
+  padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 13px; color: #a5b4fc; margin-bottom: 12px;
+}
+.codeSection { margin-bottom: 12px; }
+.codeLabel { display: block; font-size: 11px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; margin-bottom: 6px; }
+.code {
+  background: rgba(6, 6, 15, 0.7); border: 1px solid rgba(99, 102, 241, 0.08);
+  border-radius: 8px; padding: 14px; font-size: 12px; color: #818cf8;
+  overflow-x: auto; font-family: 'JetBrains Mono', monospace; line-height: 1.5;
+  white-space: pre;
+}
+
+/* Code Examples */
+.langTabs { display: flex; gap: 4px; margin-bottom: 16px; }
+.langTab {
+  padding: 8px 16px; background: rgba(15, 15, 35, 0.5); border: 1px solid rgba(99, 102, 241, 0.1);
+  border-radius: 8px; color: #94a3b8; font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
+}
+.langTab:hover { border-color: rgba(99, 102, 241, 0.25); color: #e2e8f0; }
+.langActive { background: rgba(99, 102, 241, 0.15) !important; color: #fff !important; border-color: #6366f1 !important; }
+.codeBlock {
+  background: rgba(6, 6, 15, 0.7); border: 1px solid rgba(99, 102, 241, 0.1);
+  border-radius: 12px; padding: 20px; font-size: 13px; color: #a5b4fc;
+  overflow-x: auto; font-family: 'JetBrains Mono', monospace; line-height: 1.6;
+  white-space: pre;
+}
+
+/* Table */
+.table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+.table th {
+  text-align: left; padding: 10px 14px; font-size: 11px; color: #64748b; text-transform: uppercase;
+  letter-spacing: 0.5px; border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+}
+.table td {
+  padding: 12px 14px; font-size: 14px; border-bottom: 1px solid rgba(99, 102, 241, 0.06);
+}
+.table tr:hover td { background: rgba(99, 102, 241, 0.04); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .main { margin-left: 0; padding: 16px; }
+}

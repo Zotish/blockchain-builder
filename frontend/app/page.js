@@ -147,6 +147,7 @@ export default function LandingPage() {
             <a href="#how-it-works" className={styles.navLink}>How It Works</a>
             <a href="#chains" className={styles.navLink}>Chains</a>
             <a href="#pricing" className={styles.navLink}>Pricing</a>
+            <a href="/docs" className={styles.navLink}>Docs</a>
           </div>
           <div className={styles.navActions}>
             <button className="btn btn-ghost" onClick={() => router.push('/auth')}>Sign In</button>
@@ -390,9 +391,9 @@ export default function LandingPage() {
               </div>
               <div>
                 <h4>Resources</h4>
-                <a href="#">Documentation</a>
-                <a href="#">API Reference</a>
-                <a href="#">Templates</a>
+                <a href="/docs">Documentation</a>
+                <a href="/docs">API Reference</a>
+                <a href="/builder">Templates</a>
               </div>
               <div>
                 <h4>Company</h4>
@@ -403,7 +404,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className={styles.footerBottom}>
-            <p>© 2024 ChainForge. All rights reserved.</p>
+            <p>© 2026 ChainForge. All rights reserved.</p>
           </div>
         </div>
       </footer>

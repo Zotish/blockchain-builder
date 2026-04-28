@@ -28,6 +28,7 @@ const chainRoutes = require('./routes/chains');
 const templateRoutes = require('./routes/templates');
 const deployRoutes = require('./routes/deploy');
 const paymentRoutes = require('./routes/payment');
+const faucetRoutes = require('./routes/faucet');
 
 // Services
 const { startChainMonitor } = require('./services/chainMonitor');
@@ -74,6 +75,7 @@ app.use('/api/chains',    chainRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/deploy',    deployRoutes);
 app.use('/api/payment',   paymentRoutes);
+app.use('/api/faucet',    faucetRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

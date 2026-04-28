@@ -186,6 +186,23 @@ class ApiClient {
   async getPaymentHistory() {
     return this.request('/payment/history');
   }
+
+  // Faucet
+  async requestFaucet(chainId, address) {
+    return this.request(`/faucet/${chainId}`, {
+      method: 'POST',
+      body: JSON.stringify({ address }),
+    });
+  }
+
+  // Deploy extras
+  async getDeployLogs(chainId) {
+    return this.request(`/deploy/logs/${chainId}`);
+  }
+
+  async getDeployStatus(chainId) {
+    return this.request(`/deploy/status/${chainId}`);
+  }
 }
 
 const api = new ApiClient();
