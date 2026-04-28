@@ -252,7 +252,9 @@ export default function BuilderPage() {
       }
 
       // Deploy to testnet
-      const deployRes = await api.deployTestnet(chainRes.data.chain.id);
+      const chainId = chainRes.data.chain._id || chainRes.data.chain.id;
+      if (!chainId) throw new Error('Chain created but no ID returned');
+      const deployRes = await api.deployTestnet(chainId);
 
       if (!deployRes.success) {
         throw new Error(deployRes.error || 'Deployment failed');
@@ -392,7 +394,7 @@ export default function BuilderPage() {
             type="number"
             className="input"
             value={chainConfig.chainId}
-            onChange={(e) => updateConfig('chainId', parseInt(e.target.value))}
+            onChange={(e) => updateConfig('chainId', parseInt(e.target.value) || '')}
           />
         </div>
 
@@ -431,7 +433,7 @@ export default function BuilderPage() {
             type="number"
             className="input"
             value={chainConfig.blockTime}
-            onChange={(e) => updateConfig('blockTime', parseInt(e.target.value))}
+            onChange={(e) => updateConfig('blockTime', parseInt(e.target.value) || '')}
             min={1}
             max={120}
           />
@@ -565,7 +567,7 @@ export default function BuilderPage() {
             type="number"
             className="input"
             value={chainConfig.governance.votingPeriod}
-            onChange={(e) => updateGovernance('votingPeriod', parseInt(e.target.value))}
+            onChange={(e) => updateGovernance('votingPeriod', parseInt(e.target.value) || '')}
           />
           <span className={styles.inputHint}>
             ≈ {Math.round(chainConfig.governance.votingPeriod / 3600)} hours
@@ -578,7 +580,7 @@ export default function BuilderPage() {
             type="number"
             className="input"
             value={chainConfig.governance.quorum}
-            onChange={(e) => updateGovernance('quorum', parseInt(e.target.value))}
+            onChange={(e) => updateGovernance('quorum', parseInt(e.target.value) || '')}
             min={1}
             max={100}
           />
