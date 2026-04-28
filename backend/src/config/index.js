@@ -29,13 +29,46 @@ module.exports = {
     process.env.PAYMENT_WALLET ||
     '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD38',
 
-  // Pricing in ETH
+  // ── Pricing & Plan Limits ───────────────────────────────
   pricing: {
-    basic: '0.1',
-    standard: '0.3',
-    enterprise: '1.0',
-    additionalNode: '0.05',
-    customConsensus: '0.5',
+    // Base plan prices in ETH
+    plans: {
+      basic:      { eth: '0.1',  btc: null }, // BTC auto-calculated
+      standard:   { eth: '0.3',  btc: null },
+      enterprise: { eth: '1.0',  btc: null },
+    },
+    // Per-unit addons (ETH)
+    addons: {
+      extraChain: '1.0',   // +1 ETH per additional mainnet chain
+      extraNode:  '0.2',   // +0.2 ETH per additional validator node
+    },
+    // Accepted primary currencies (others auto-convert to ETH equivalent)
+    primaryCurrencies: ['ETH', 'BTC'],
+    otherCurrencies:   ['MATIC', 'BNB', 'USDT', 'USDC', 'SOL'],
+  },
+
+  // ── Plan Feature Limits ──────────────────────────────────
+  plans: {
+    free: {
+      testnets:        1,   // max testnet chains
+      mainnets:        0,   // no mainnet
+      validatorNodes:  0,
+    },
+    basic: {
+      testnets:        3,
+      mainnets:        1,
+      validatorNodes:  1,   // 1 validator per mainnet
+    },
+    standard: {
+      testnets:        10,
+      mainnets:        2,
+      validatorNodes:  3,   // 3 validators per mainnet
+    },
+    enterprise: {
+      testnets:        50,
+      mainnets:        5,
+      validatorNodes:  10,  // up to 10 validators (+ addons)
+    },
   },
 
   // Docker (local fallback)

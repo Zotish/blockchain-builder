@@ -364,14 +364,142 @@
     max-width: 400px;
     margin: 0 auto 40px;
   }
-  .planPopular {
-    transform: none;
-  }
-  .actionBar {
-    flex-direction: column;
-    gap: 16px;
-  }
-  .paymentActions {
-    flex-direction: column;
-  }
+  .planPopular { transform: none; }
+  .actionBar { flex-direction: column; gap: 16px; }
+  .paymentActions { flex-direction: column; }
+}
+
+/* USD price under plan */
+.usdPrice {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: -16px;
+  margin-bottom: 16px;
+}
+
+/* Currency primary badge */
+.currencyPrimary { border-color: rgba(99,102,241,0.4); }
+.primaryBadge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  background: var(--gradient-primary);
+  border-radius: var(--radius-full);
+  color: white;
+  margin-left: 2px;
+}
+.currencyNote {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+/* Addons section */
+.addonsSection {
+  margin-bottom: 40px;
+}
+.addonsSection h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  text-align: center;
+}
+.addonGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  max-width: 700px;
+  margin: 0 auto;
+}
+.addonCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+.addonInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.addonIcon { font-size: 28px; }
+.addonLabel { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+.addonPrice { font-size: 12px; color: var(--text-muted); }
+.addonControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.addonBtn {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+.addonBtn:hover { border-color: var(--primary-500); color: var(--primary-300); }
+.addonCount { font-size: 18px; font-weight: 700; min-width: 24px; text-align: center; }
+
+/* Total box */
+.totalBox {
+  flex: 1;
+  max-width: 360px;
+}
+.totalRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  padding: 6px 0;
+  color: var(--text-secondary);
+}
+.totalFinal {
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 8px;
+  padding-top: 12px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+.usdEquiv { font-size: 12px; color: var(--text-muted); text-align: right; margin-top: 4px; }
+.ethEquiv { font-size: 12px; color: var(--accent-cyan); text-align: right; }
+
+/* Breakdown */
+.breakdown {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 24px;
+  font-size: 13px;
+}
+.breakdownTitle { font-weight: 600; margin-bottom: 8px; color: var(--text-secondary); }
+.breakdownRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  color: var(--text-muted);
+}
+
+/* Payment warning note */
+.paymentNote {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  font-size: 12px;
+  color: #fbbf24;
+  margin-top: 8px;
+}
+
+@media (max-width: 600px) {
+  .addonGrid { grid-template-columns: 1fr; }
+  .actionBar { flex-direction: column; }
 }

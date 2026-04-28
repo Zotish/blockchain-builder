@@ -5,64 +5,137 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import api from '../../lib/api';
 import styles from './payment.module.css';
 
+// ── Plan definitions (mirrors backend) ───────────────────
 const PLANS = [
   {
     id: 'basic',
     name: 'Basic',
-    price: '0.1',
-    currency: 'ETH',
-    features: ['1 Validator Node', 'Basic Support', '30-day SLA'],
     icon: '🥉',
+    ethPrice: '0.1',
+    mainnets: 1,
+    validators: 1,
+    testnets: 3,
+    features: ['1 Mainnet', '1 Validator Node', '3 Testnets', '30-day SLA', 'Basic Support'],
   },
   {
     id: 'standard',
     name: 'Standard',
-    price: '0.3',
-    currency: 'ETH',
-    features: ['3 Validator Nodes', 'Priority Support', '90-day SLA', 'Block Explorer', 'Custom RPC'],
     icon: '🥈',
+    ethPrice: '0.3',
+    mainnets: 2,
+    validators: 3,
+    testnets: 10,
     popular: true,
+    features: ['2 Mainnets', '3 Validator Nodes', '10 Testnets', '90-day SLA', 'Priority Support', 'Block Explorer'],
   },
   {
     id: 'enterprise',
     name: 'Enterprise',
-    price: '1.0',
-    currency: 'ETH',
-    features: ['5+ Validator Nodes', '24/7 Support', '1-year SLA', 'Custom Domain', 'Analytics', 'White-label'],
     icon: '🥇',
+    ethPrice: '1.0',
+    mainnets: 5,
+    validators: 10,
+    testnets: 50,
+    features: ['5 Mainnets', '10 Validator Nodes', '50 Testnets', '1-year SLA', '24/7 Support', 'Custom Domain', 'Analytics'],
   },
 ];
 
+const ADDON_PRICES = { extraChain: '1.0', extraNode: '0.2' };
+
 const CURRENCIES = [
-  { id: 'ETH', name: 'Ethereum', icon: '⟠', network: 'Ethereum' },
-  { id: 'BNB', name: 'BNB', icon: '💛', network: 'BNB Chain' },
-  { id: 'MATIC', name: 'Polygon', icon: '💜', network: 'Polygon' },
-  { id: 'USDT', name: 'USDT', icon: '💲', network: 'Ethereum' },
-  { id: 'USDC', name: 'USDC', icon: '💵', network: 'Ethereum' },
+  { id: 'ETH',   name: 'Ethereum',  icon: '⟠',  primary: true  },
+  { id: 'BTC',   name: 'Bitcoin',   icon: '₿',  primary: true  },
+  { id: 'BNB',   name: 'BNB',       icon: '💛', primary: false },
+  { id: 'MATIC', name: 'Polygon',   icon: '💜', primary: false },
+  { id: 'USDT',  name: 'USDT',      icon: '💲', primary: false },
+  { id: 'USDC',  name: 'USDC',      icon: '💵', primary: false },
+  { id: 'SOL',   name: 'Solana',    icon: '🟣', primary: false },
 ];
 
 function PaymentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [selectedPlan, setSelectedPlan] = useState('standard');
-  const [selectedCurrency, setSelectedCurrency] = useState('ETH');
-  const [step, setStep] = useState('plan'); // plan, payment, processing, success
-  const [txHash, setTxHash] = useState('');
-  const [processing, setProcessing] = useState(false);
-  const [paymentData, setPaymentData] = useState(null);
   const chainId = searchParams.get('chain');
+
+  const [selectedPlan, setSelectedPlan]       = useState('standard');
+  const [selectedCurrency, setSelectedCurrency] = useState('ETH');
+  const [extraChains, setExtraChains]         = useState(0);
+  const [extraNodes, setExtraNodes]           = useState(0);
+  const [step, setStep]                       = useState('plan');
+  const [txHash, setTxHash]                   = useState('');
+  const [processing, setProcessing]           = useState(false);
+  const [paymentData, setPaymentData]         = useState(null);
+  const [livePrices, setLivePrices]           = useState({});
+  const [convertedAmount, setConvertedAmount] = useState(null);
+  const [loadingConvert, setLoadingConvert]   = useState(false);
+
+  // Load live prices on mount
+  useEffect(() => {
+    api.request('/payment/pricing').then(res => {
+      if (res.success) setLivePrices(res.data.livePrices || {});
+    }).catch(() => {});
+  }, []);
+
+  // Auto-convert when currency or plan+addons changes
+  useEffect(() => {
+    if (!selectedCurrency || selectedCurrency === 'ETH') {
+      setConvertedAmount(null);
+      return;
+    }
+    const plan = PLANS.find(p => p.id === selectedPlan);
+    if (!plan) return;
+
+    const totalEth = (
+      parseFloat(plan.ethPrice) +
+      extraChains * parseFloat(ADDON_PRICES.extraChain) +
+      extraNodes  * parseFloat(ADDON_PRICES.extraNode)
+    ).toFixed(6);
+
+    setLoadingConvert(true);
+    api.request(`/payment/convert?ethAmount=${totalEth}&currency=${selectedCurrency}`)
+      .then(res => {
+        if (res.success) setConvertedAmount(res.data);
+      })
+      .finally(() => setLoadingConvert(false));
+  }, [selectedCurrency, selectedPlan, extraChains, extraNodes]);
+
+  const getTotalEth = () => {
+    const plan = PLANS.find(p => p.id === selectedPlan);
+    return (
+      parseFloat(plan?.ethPrice || 0) +
+      extraChains * parseFloat(ADDON_PRICES.extraChain) +
+      extraNodes  * parseFloat(ADDON_PRICES.extraNode)
+    ).toFixed(6);
+  };
+
+  const getUsdValue = () => {
+    const eth = parseFloat(getTotalEth());
+    const ethUsd = livePrices.ETH || 3000;
+    return (eth * ethUsd).toFixed(2);
+  };
+
+  const getDisplayAmount = () => {
+    if (selectedCurrency === 'ETH') return `${getTotalEth()} ETH`;
+    if (convertedAmount) return `${convertedAmount.convertedAmount} ${selectedCurrency}`;
+    if (loadingConvert) return 'Calculating...';
+    return `${getTotalEth()} ETH`;
+  };
 
   const handleProceedToPayment = async () => {
     if (!chainId) {
-      alert('No chain selected. Please select a chain from the dashboard first.');
+      alert('No chain selected. Go to dashboard and select a chain first.');
       return;
     }
-
     try {
-      const res = await api.createPayment(chainId, selectedPlan, selectedCurrency);
+      const res = await api.request('/payment/create', {
+        method: 'POST',
+        body: JSON.stringify({ chainId, plan: selectedPlan, currency: selectedCurrency, extraChains, extraNodes }),
+      });
       if (res.success) {
         setPaymentData(res.data);
         setStep('payment');
+      } else {
+        alert(res.error || 'Failed to create payment.');
       }
     } catch (err) {
       alert(err.message);
@@ -71,22 +144,23 @@ function PaymentContent() {
 
   const handleVerifyPayment = async () => {
     if (!txHash.trim()) {
-      alert('Please enter the transaction hash.');
+      alert('Please paste the transaction hash.');
       return;
     }
-
     setProcessing(true);
     setStep('processing');
-
     try {
-      const res = await api.verifyPayment(paymentData.payment.id, txHash);
+      const res = await api.request('/payment/verify', {
+        method: 'POST',
+        body: JSON.stringify({ paymentId: paymentData.payment._id, txHash }),
+      });
       if (res.success) {
-        // Deploy to mainnet
-        await api.deployMainnet(chainId, paymentData.payment.id);
-        setTimeout(() => {
-          setStep('success');
-          setProcessing(false);
-        }, 3000);
+        await api.request(`/deploy/mainnet/${chainId}`, { method: 'POST', body: JSON.stringify({ paymentId: paymentData.payment._id }) });
+        setTimeout(() => { setStep('success'); setProcessing(false); }, 2000);
+      } else {
+        alert(res.error || 'Verification failed.');
+        setStep('payment');
+        setProcessing(false);
       }
     } catch (err) {
       alert(err.message);
@@ -107,21 +181,21 @@ function PaymentContent() {
             <span>⛓️</span>
             <span className={styles.logoText}>Chain<span className={styles.logoAccent}>Forge</span></span>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={() => router.push('/dashboard')}>
-            ← Back to Dashboard
-          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => router.push('/dashboard')}>← Dashboard</button>
         </div>
       </header>
 
       <main className={styles.main}>
+
+        {/* ── STEP 1: Plan Selection ── */}
         {step === 'plan' && (
           <div className={styles.planStep}>
             <div className={styles.stepHeader}>
               <h1 className={styles.title}>Launch to <span className="gradient-text">Mainnet</span></h1>
-              <p className={styles.subtitle}>Choose your deployment plan and pay with crypto</p>
+              <p className={styles.subtitle}>Choose your plan, add extras, pay with ETH or BTC</p>
             </div>
 
-            {/* Plan Selection */}
+            {/* Plans */}
             <div className={styles.plansGrid}>
               {PLANS.map((p) => (
                 <div
@@ -133,39 +207,105 @@ function PaymentContent() {
                   <div className={styles.planIcon}>{p.icon}</div>
                   <h3 className={styles.planName}>{p.name}</h3>
                   <div className={styles.planPrice}>
-                    <span className={styles.priceAmount}>{p.price}</span>
-                    <span className={styles.priceCurrency}>{p.currency}</span>
+                    <span className={styles.priceAmount}>{p.ethPrice}</span>
+                    <span className={styles.priceCurrency}>ETH</span>
                   </div>
+                  {livePrices.ETH && (
+                    <div className={styles.usdPrice}>≈ ${(parseFloat(p.ethPrice) * livePrices.ETH).toFixed(0)} USD</div>
+                  )}
                   <ul className={styles.planFeatures}>
-                    {p.features.map((f) => (
-                      <li key={f}>✓ {f}</li>
-                    ))}
+                    {p.features.map((f) => <li key={f}>✓ {f}</li>)}
                   </ul>
                 </div>
               ))}
             </div>
 
-            {/* Currency Selection */}
+            {/* Addons */}
+            <div className={styles.addonsSection}>
+              <h3>⚡ Add-ons</h3>
+              <div className={styles.addonGrid}>
+                <div className={styles.addonCard}>
+                  <div className={styles.addonInfo}>
+                    <span className={styles.addonIcon}>⛓️</span>
+                    <div>
+                      <div className={styles.addonLabel}>Extra Mainnet Chain</div>
+                      <div className={styles.addonPrice}>+1.0 ETH each</div>
+                    </div>
+                  </div>
+                  <div className={styles.addonControls}>
+                    <button className={styles.addonBtn} onClick={() => setExtraChains(Math.max(0, extraChains - 1))}>−</button>
+                    <span className={styles.addonCount}>{extraChains}</span>
+                    <button className={styles.addonBtn} onClick={() => setExtraChains(extraChains + 1)}>+</button>
+                  </div>
+                </div>
+
+                <div className={styles.addonCard}>
+                  <div className={styles.addonInfo}>
+                    <span className={styles.addonIcon}>🖥️</span>
+                    <div>
+                      <div className={styles.addonLabel}>Extra Validator Node</div>
+                      <div className={styles.addonPrice}>+0.2 ETH each</div>
+                    </div>
+                  </div>
+                  <div className={styles.addonControls}>
+                    <button className={styles.addonBtn} onClick={() => setExtraNodes(Math.max(0, extraNodes - 1))}>−</button>
+                    <span className={styles.addonCount}>{extraNodes}</span>
+                    <button className={styles.addonBtn} onClick={() => setExtraNodes(extraNodes + 1)}>+</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Currency */}
             <div className={styles.currencySection}>
-              <h3>Pay With</h3>
+              <h3>💳 Pay With</h3>
+              <div className={styles.currencyNote}>Primary: ETH & BTC — Others auto-calculated to ETH equivalent</div>
               <div className={styles.currencyGrid}>
                 {CURRENCIES.map((c) => (
                   <button
                     key={c.id}
-                    className={`${styles.currencyBtn} ${selectedCurrency === c.id ? styles.currencyBtnActive : ''}`}
+                    className={`${styles.currencyBtn} ${selectedCurrency === c.id ? styles.currencyBtnActive : ''} ${c.primary ? styles.currencyPrimary : ''}`}
                     onClick={() => setSelectedCurrency(c.id)}
                   >
                     <span className={styles.currencyIcon}>{c.icon}</span>
                     <span>{c.name}</span>
+                    {c.primary && <span className={styles.primaryBadge}>Primary</span>}
                   </button>
                 ))}
               </div>
             </div>
 
+            {/* Total */}
             <div className={styles.actionBar}>
-              <div className={styles.totalPrice}>
-                <span>Total:</span>
-                <strong>{plan?.price} {selectedCurrency}</strong>
+              <div className={styles.totalBox}>
+                <div className={styles.totalRow}>
+                  <span>Plan ({plan?.name}):</span>
+                  <strong>{plan?.ethPrice} ETH</strong>
+                </div>
+                {extraChains > 0 && (
+                  <div className={styles.totalRow}>
+                    <span>+{extraChains} Chain(s):</span>
+                    <strong>{(extraChains * 1.0).toFixed(1)} ETH</strong>
+                  </div>
+                )}
+                {extraNodes > 0 && (
+                  <div className={styles.totalRow}>
+                    <span>+{extraNodes} Node(s):</span>
+                    <strong>{(extraNodes * 0.2).toFixed(1)} ETH</strong>
+                  </div>
+                )}
+                <div className={`${styles.totalRow} ${styles.totalFinal}`}>
+                  <span>Total:</span>
+                  <strong className="gradient-text">
+                    {loadingConvert ? 'Calculating...' : getDisplayAmount()}
+                  </strong>
+                </div>
+                {livePrices.ETH && (
+                  <div className={styles.usdEquiv}>≈ ${getUsdValue()} USD</div>
+                )}
+                {convertedAmount && selectedCurrency !== 'ETH' && (
+                  <div className={styles.ethEquiv}>= {getTotalEth()} ETH</div>
+                )}
               </div>
               <button className="btn btn-primary btn-lg" onClick={handleProceedToPayment}>
                 Proceed to Payment →
@@ -174,98 +314,99 @@ function PaymentContent() {
           </div>
         )}
 
-        {step === 'payment' && (
+        {/* ── STEP 2: Payment ── */}
+        {step === 'payment' && paymentData && (
           <div className={styles.paymentStep}>
             <div className={styles.stepHeader}>
               <h1 className={styles.title}>Complete <span className="gradient-text">Payment</span></h1>
-              <p className={styles.subtitle}>Send the exact amount to the wallet address below</p>
+              <p className={styles.subtitle}>Send the exact amount to the address below</p>
             </div>
 
             <div className={styles.paymentCard}>
               <div className={styles.paymentInfo}>
+                <div className={styles.paymentRow}><span>Plan</span><strong>{plan?.icon} {plan?.name}</strong></div>
+                <div className={styles.paymentRow}><span>Currency</span><strong>{currency?.icon} {selectedCurrency}</strong></div>
                 <div className={styles.paymentRow}>
-                  <span>Plan</span>
-                  <strong>{plan?.name} ({plan?.icon})</strong>
+                  <span>Amount to Send</span>
+                  <strong className={styles.paymentAmount}>{paymentData.amount} {selectedCurrency}</strong>
                 </div>
-                <div className={styles.paymentRow}>
-                  <span>Amount</span>
-                  <strong className={styles.paymentAmount}>{plan?.price} {selectedCurrency}</strong>
-                </div>
-                <div className={styles.paymentRow}>
-                  <span>Network</span>
-                  <strong>{currency?.network}</strong>
-                </div>
+                {paymentData.usdValue && (
+                  <div className={styles.paymentRow}><span>USD Value</span><strong>≈ ${paymentData.usdValue}</strong></div>
+                )}
+                {selectedCurrency !== 'ETH' && (
+                  <div className={styles.paymentNote}>
+                    ⚠️ Non-primary currency: send equivalent of {paymentData.totalEth} ETH in {selectedCurrency}
+                  </div>
+                )}
               </div>
 
               <div className={styles.walletAddress}>
-                <label>Send to this wallet address:</label>
+                <label>Send to this {selectedCurrency} wallet:</label>
                 <div className={styles.addressBox}>
-                  <code>{paymentData?.payTo || '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD38'}</code>
-                  <button className="btn btn-ghost btn-sm" onClick={() => navigator.clipboard.writeText(paymentData?.payTo || '')}>
-                    📋 Copy
-                  </button>
+                  <code>{paymentData.payTo}</code>
+                  <button className="btn btn-ghost btn-sm" onClick={() => navigator.clipboard.writeText(paymentData.payTo)}>📋 Copy</button>
                 </div>
               </div>
 
+              {paymentData.breakdown && (
+                <div className={styles.breakdown}>
+                  <div className={styles.breakdownTitle}>Price Breakdown</div>
+                  {Object.entries(paymentData.breakdown).filter(([,v]) => v).map(([k, v]) => (
+                    <div key={k} className={styles.breakdownRow}><span>{k}:</span><span>{v}</span></div>
+                  ))}
+                </div>
+              )}
+
               <div className={styles.txSection}>
-                <label className="input-label">Transaction Hash</label>
+                <label className="input-label">Transaction Hash (after sending)</label>
                 <input
                   type="text"
                   className="input"
-                  placeholder="0x..."
+                  placeholder={selectedCurrency === 'BTC' ? 'BTC txid (64 hex chars)' : '0x...'}
                   value={txHash}
                   onChange={(e) => setTxHash(e.target.value)}
                 />
-                <p className={styles.txHint}>
-                  After sending the payment, paste the transaction hash above to verify.
-                </p>
+                <p className={styles.txHint}>Send payment first, then paste the tx hash for verification.</p>
               </div>
 
               <div className={styles.paymentActions}>
-                <button className="btn btn-secondary" onClick={() => setStep('plan')}>
-                  ← Back
-                </button>
-                <button className="btn btn-primary btn-lg" onClick={handleVerifyPayment}>
-                  ✓ Verify Payment
-                </button>
+                <button className="btn btn-secondary" onClick={() => setStep('plan')}>← Back</button>
+                <button className="btn btn-primary btn-lg" onClick={handleVerifyPayment}>✓ Verify Payment</button>
               </div>
             </div>
           </div>
         )}
 
+        {/* ── STEP 3: Processing ── */}
         {step === 'processing' && (
           <div className={styles.processingStep}>
             <div className="spinner spinner-lg"></div>
-            <h2>Verifying Payment...</h2>
-            <p>Please wait while we confirm your transaction on the blockchain.</p>
-            <div className="progress-bar" style={{ maxWidth: 400, margin: '24px auto' }}>
-              <div className="progress-fill" style={{ width: '60%', animation: 'shimmer 2s infinite' }}></div>
+            <h2>Verifying on Blockchain...</h2>
+            <p>Checking {txHash.slice(0, 10)}... on {selectedCurrency} network.</p>
+          </div>
+        )}
+
+        {/* ── STEP 4: Success ── */}
+        {step === 'success' && (
+          <div className={styles.successStep}>
+            <div className={styles.successIcon}>🎉</div>
+            <h2>Mainnet Deployed!</h2>
+            <p>Your blockchain is live. Plan upgraded to <strong>{plan?.name}</strong>.</p>
+            <div className={styles.successActions}>
+              <button className="btn btn-primary btn-lg" onClick={() => router.push('/dashboard')}>Go to Dashboard</button>
+              <button className="btn btn-secondary btn-lg" onClick={() => router.push('/explorer')}>Open Explorer</button>
             </div>
           </div>
         )}
 
-        {step === 'success' && (
-          <div className={styles.successStep}>
-            <div className={styles.successIcon}>🎉</div>
-            <h2>Mainnet Deployed Successfully!</h2>
-            <p>Your blockchain is now live on mainnet. Congratulations!</p>
-            <div className={styles.successActions}>
-              <button className="btn btn-primary btn-lg" onClick={() => router.push('/dashboard')}>
-                Go to Dashboard
-              </button>
-              <button className="btn btn-secondary btn-lg" onClick={() => router.push('/explorer')}>
-                Open Explorer
-              </button>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   );
 }
+
 export default function PaymentPage() {
   return (
-    <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0f172a', color: '#94a3b8' }}>Loading...</div>}>
+    <Suspense fallback={<div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:'100vh', background:'#0f172a', color:'#94a3b8' }}>Loading...</div>}>
       <PaymentContent />
     </Suspense>
   );
