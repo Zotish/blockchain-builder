@@ -1,15 +1,22 @@
 require('dotenv').config();
 
-// ── Sentry (error tracking) — init FIRST ─────────────────
-let Sentry;
-if (process.env.SENTRY_DSN) {
-  Sentry = require('@sentry/node');
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    environment: process.env.NODE_ENV || 'development',
-    tracesSampleRate: 0.2,
-  });
-  console.log('🔭 Sentry error tracking initialized');
+// ── Sentry v8 (error tracking) — init FIRST ─────────────────
+// Sentry v8 removed Handlers.requestHandler/errorHandler
+// Use setupExpressErrorHandler instead
+let Sentry = null;
+try {
+  if (process.env.SENTRY_DSN) {
+    Sentry = require('@sentry/node');
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV || 'development',
+      tracesSampleRate: 0.2,
+    });
+    console.log('🔭 Sentry error tracking initialized');
+  }
+} catch (e) {
+  console.warn('⚠️  Sentry init failed (non-fatal):', e.message);
+  Sentry = null;
 }
 
 const express = require('express');
@@ -52,7 +59,7 @@ const io = new Server(server, {
 app.set('io', io);
 
 // ── Middleware ────────────────────────────────────────────
-if (Sentry) app.use(Sentry.Handlers.requestHandler());
+// Sentry v8: requestHandler removed — tracing handled automatically via init
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
@@ -99,7 +106,10 @@ io.on('connection', (socket) => {
 });
 
 // ── Error Handlers ────────────────────────────────────────
-if (Sentry) app.use(Sentry.Handlers.errorHandler());
+// Sentry v8: use setupExpressErrorHandler instead of Handlers.errorHandler
+if (Sentry && typeof Sentry.setupExpressErrorHandler === 'function') {
+  Sentry.setupExpressErrorHandler(app);
+}
 
 app.use((err, req, res, next) => {
   if (Sentry) Sentry.captureException(err);
