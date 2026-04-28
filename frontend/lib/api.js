@@ -203,6 +203,11 @@ class ApiClient {
   async getDeployStatus(chainId) {
     return this.request(`/deploy/status/${chainId}`);
   }
+
+  // Chain adapter info
+  async getChainAdapter(chainId) {
+    return this.request(`/chains/${chainId}/adapter`);
+  }
 }
 
 const api = new ApiClient();

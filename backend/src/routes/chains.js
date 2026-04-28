@@ -133,6 +133,40 @@ router.get('/:id/stats', authMiddleware, async (req, res) => {
   }
 });
 
+// ── GET /api/chains/:id/adapter ──────────────────────────
+// Returns chain-specific wallet, address, and connection info
+router.get('/:id/adapter', authMiddleware, async (req, res) => {
+  try {
+    const chain = await Chain.findOne({ _id: req.params.id, userId: req.userId });
+    if (!chain) return res.status(404).json({ success: false, error: 'Chain not found.' });
+
+    const { getChainAdapter } = require('../services/chainAdapters');
+    const adapter = getChainAdapter(chain.type);
+
+    res.json({
+      success: true,
+      data: {
+        chainType: chain.type,
+        walletName: adapter.walletName,
+        walletIcon: adapter.walletIcon,
+        walletUrl: adapter.walletUrl,
+        addressFormat: adapter.addressFormat,
+        addressPlaceholder: adapter.addressPlaceholder,
+        connectCode: (adapter.connectWalletCode || '')
+          .replace(/CHAIN_ID_HEX/g, '0x' + (chain.config?.chainId || 1337).toString(16))
+          .replace(/CHAIN_ID/g, String(chain.config?.chainId || chain.name))
+          .replace(/CHAIN_NAME/g, chain.name)
+          .replace(/RPC_URL/g, chain.endpoints?.rpc || 'http://localhost:8545')
+          .replace(/WS_URL/g, chain.endpoints?.ws || 'ws://localhost:8546')
+          .replace(/REST_URL/g, chain.endpoints?.rest || chain.endpoints?.rpc || '')
+          .replace(/SYMBOL/g, chain.token?.symbol || chain.config?.symbol || 'TOKEN'),
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to fetch adapter info.' });
+  }
+});
+
 function generateGenesis(chain) {
   if (chain.type === 'evm') {
     return {

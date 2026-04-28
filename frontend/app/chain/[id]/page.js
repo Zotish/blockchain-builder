@@ -15,6 +15,7 @@ export default function ChainDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const [chain, setChain] = useState(null);
+  const [adapterInfo, setAdapterInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState('');
@@ -28,9 +29,13 @@ export default function ChainDetailPage() {
 
   const fetchChain = useCallback(async () => {
     try {
-      const res = await api.getChain(id);
-      if (res.success) setChain(res.data.chain || res.data);
-      else setError(res.error);
+      const [chainRes, adapterRes] = await Promise.all([
+        api.getChain(id),
+        api.getChainAdapter(id).catch(() => null),
+      ]);
+      if (chainRes.success) setChain(chainRes.data.chain || chainRes.data);
+      else setError(chainRes.error);
+      if (adapterRes?.success) setAdapterInfo(adapterRes.data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -46,26 +51,27 @@ export default function ChainDetailPage() {
     setTimeout(() => setCopied(''), 2000);
   };
 
-  const addToMetaMask = async () => {
-    if (!window.ethereum) return alert('Please install MetaMask!');
-    try {
-      await window.ethereum.request({
-        method: 'wallet_addEthereumChain',
-        params: [{
-          chainId: '0x' + (chain.config?.chainId || 1337).toString(16),
-          chainName: chain.name,
-          nativeCurrency: {
-            name: chain.token?.name || chain.name + ' Token',
-            symbol: chain.token?.symbol || chain.config?.symbol || 'TOKEN',
-            decimals: chain.token?.decimals || 18,
-          },
-          rpcUrls: [chain.endpoints?.rpc],
-          blockExplorerUrls: chain.endpoints?.explorer ? [chain.endpoints.explorer] : undefined,
-        }],
-      });
-      alert('✅ Network added to MetaMask!');
-    } catch (err) {
-      alert('Error: ' + err.message);
+  const addToWallet = async () => {
+    if (isEVM) {
+      if (!window.ethereum) return alert('Please install MetaMask!');
+      try {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: '0x' + (chain.config?.chainId || 1337).toString(16),
+            chainName: chain.name,
+            nativeCurrency: {
+              name: chain.token?.name || chain.name + ' Token',
+              symbol: chain.token?.symbol || chain.config?.symbol || 'TOKEN',
+              decimals: chain.token?.decimals || 18,
+            },
+            rpcUrls: [chain.endpoints?.rpc],
+          }],
+        });
+        alert('✅ Network added to MetaMask!');
+      } catch (err) { alert('Error: ' + err.message); }
+    } else {
+      window.open(adapterInfo?.walletUrl || '#', '_blank');
     }
   };
 
@@ -92,6 +98,8 @@ export default function ChainDetailPage() {
   const isDeployed = chain.status === 'deployed';
   const isEVM = ['evm', 'hyperledger', 'custom'].includes(chain.type);
   const liveStats = stats || chain.stats || {};
+  const walletName = adapterInfo?.walletName || (isEVM ? 'MetaMask' : 'Wallet');
+  const walletIcon = adapterInfo?.walletIcon || (isEVM ? '🦊' : '👛');
 
   return (
     <div className={styles.page}>
@@ -129,8 +137,8 @@ export default function ChainDetailPage() {
             <span className={styles.statValue}>{liveStats.peers || 0}</span>
           </div>
           <div className={styles.statItem}>
-            <span className={styles.statLabel}>Gas Price</span>
-            <span className={styles.statValue}>{liveStats.gasPrice ? (parseInt(liveStats.gasPrice) / 1e9).toFixed(1) + ' Gwei' : '—'}</span>
+            <span className={styles.statLabel}>{isEVM ? 'Gas Price' : 'Status'}</span>
+            <span className={styles.statValue}>{isEVM ? (liveStats.gasPrice ? (parseInt(liveStats.gasPrice) / 1e9).toFixed(1) + ' Gwei' : '—') : (isDeployed ? '● Online' : '○ Offline')}</span>
           </div>
         </div>
       )}
@@ -189,12 +197,18 @@ export default function ChainDetailPage() {
                   </div>
                 </div>
 
-                {/* MetaMask Button */}
-                {isEVM && (
-                  <button className={styles.metamaskBtn} onClick={addToMetaMask}>
-                    <span className={styles.metamaskIcon}>🦊</span>
-                    Add to MetaMask — One Click
-                  </button>
+                {/* Wallet Connect Button — works for ALL chain types */}
+                <button className={styles.metamaskBtn} onClick={addToWallet}>
+                  <span className={styles.metamaskIcon}>{walletIcon}</span>
+                  {isEVM ? `Add to ${walletName} — One Click` : `Get ${walletName} Wallet`}
+                </button>
+
+                {/* Connect code for non-EVM chains */}
+                {!isEVM && adapterInfo?.connectCode && (
+                  <div style={{ marginTop: 16 }}>
+                    <p className={styles.cardDesc}>How to connect to this {chain.type} chain:</p>
+                    <pre className={styles.codeBlock}>{adapterInfo.connectCode}</pre>
+                  </div>
                 )}
               </div>
             )}
@@ -245,11 +259,14 @@ export default function ChainDetailPage() {
                 <p className={styles.cardDesc}>
                   Get free test tokens for development. Limited to 1 request per hour per chain.
                 </p>
+                <p className={styles.cardDesc} style={{ fontSize: 12, color: '#64748b' }}>
+                  {walletIcon} Wallet: <strong>{walletName}</strong> | Format: {adapterInfo?.addressFormat || 'Any'}
+                </p>
                 <div className={styles.faucetForm}>
                   <input
                     type="text"
                     className={styles.faucetInput}
-                    placeholder={isEVM ? '0x... your wallet address' : 'Enter your wallet address'}
+                    placeholder={adapterInfo?.addressPlaceholder || '0x... your wallet address'}
                     value={faucetAddr}
                     onChange={e => setFaucetAddr(e.target.value)}
                   />
