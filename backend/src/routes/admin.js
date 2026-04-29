@@ -8,11 +8,19 @@ const router = express.Router();
 
 // Admin Middleware (Simple check for admin role)
 const adminMiddleware = async (req, res, next) => {
-    const user = await User.findById(req.userId);
-    if (user && user.role === 'admin') {
-        next();
-    } else {
-        res.status(403).json({ success: false, error: 'Access denied. Admins only.' });
+    try {
+        const user = await User.findById(req.userId);
+        const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
+        
+        // Fail-safe: Check if user exists AND (role is admin OR email matches hardcoded admin email)
+        if (user && (user.role === 'admin' || user.email === adminEmail)) {
+            next();
+        } else {
+            console.warn(`🚫 Admin access denied for: ${user?.email}`);
+            res.status(403).json({ success: false, error: 'Access denied. Admins only.' });
+        }
+    } catch (err) {
+        res.status(500).json({ success: false, error: 'Internal server error in admin auth.' });
     }
 };
 
