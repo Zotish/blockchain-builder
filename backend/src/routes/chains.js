@@ -151,14 +151,36 @@ router.put('/:id', authMiddleware, async (req, res) => {
 });
 
 // ── DELETE /api/chains/:id ───────────────────────────────
+const { stopOnVPS, isVPSAvailable } = require('../services/vpsService');
+
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
-    const chain = await Chain.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+    const chain = await Chain.findOne({ _id: req.params.id, userId: req.userId });
     if (!chain) return res.status(404).json({ success: false, error: 'Chain not found.' });
-    // Also clean up deployments
+
+    console.log(`🗑️ Deleting chain: ${chain.name} (${chain._id})`);
+
+    // ── NEW: Cleanup VPS Resources ──────────────────────────
+    const vpsReady = await isVPSAvailable();
+    if (vpsReady && chain.status === 'deployed') {
+      try {
+        console.log(`🧹 Cleaning up VPS resources for ${chain.name}...`);
+        // We use stopOnVPS which not only stops but removes the container and its specific data folder
+        await stopOnVPS(chain._id);
+      } catch (err) {
+        console.warn(`⚠️ VPS Cleanup warning: ${err.message}`);
+        // Continue with DB deletion even if VPS cleanup fails
+      }
+    }
+    // ────────────────────────────────────────────────────────
+
+    // Delete from Database
+    await Chain.findByIdAndDelete(chain._id);
     await Deployment.deleteMany({ chainId: chain._id });
-    res.json({ success: true, message: 'Chain deleted.' });
+
+    res.json({ success: true, message: 'Chain and all server resources deleted successfully.' });
   } catch (err) {
+    console.error('Delete chain error:', err);
     res.status(500).json({ success: false, error: 'Failed to delete chain.' });
   }
 });

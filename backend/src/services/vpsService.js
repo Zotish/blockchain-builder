@@ -212,17 +212,25 @@ async function deployOnVPS(chain, network, onLog) {
 /**
  * Stop and remove a container from the VPS
  */
-async function stopOnVPS(containerName, rpcPort, wsPort, p2pPort) {
+async function stopOnVPS(chainId, containerName) {
   const vpsConfig = getVPSConfig();
   if (!vpsConfig) return;
 
   try {
     const ssh = await getSSHConnection(vpsConfig);
-    await runOnVPS(ssh, `docker stop ${containerName} && docker rm ${containerName}`, { allowFail: true });
-    // Clean up data volume (optional — comment out to keep chain data)
-    // await runOnVPS(ssh, `rm -rf /data/chainforge/${containerName}`, { allowFail: true });
-    if (rpcPort) freePorts(rpcPort, wsPort, p2pPort);
-    console.log(`🛑 Stopped container: ${containerName}`);
+    
+    // If container name isn't provided, we try to reconstruct it for both testnet and mainnet
+    const idStr = chainId.toString().slice(-8);
+    const names = containerName ? [containerName] : [`cf-testnet-${idStr}`, `cf-mainnet-${idStr}`];
+
+    for (const name of names) {
+      console.log(`🛑 Stopping and removing ${name}...`);
+      await runOnVPS(ssh, `docker stop ${name} && docker rm ${name}`, { allowFail: true });
+      // Clean up data volume to free disk space
+      await runOnVPS(ssh, `rm -rf /data/chainforge/${name}`, { allowFail: true });
+    }
+    
+    console.log(`✅ VPS resources cleaned up for chain: ${chainId}`);
   } catch (err) {
     console.warn('Stop VPS container error:', err.message);
   }
