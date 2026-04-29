@@ -207,7 +207,25 @@ export default function ChainDetailPage() {
                     <span className={styles.endpointLabel}>Public Explorer</span>
                     <div className={styles.endpointValue}>
                       <code>{typeof window !== 'undefined' ? `${window.location.origin}/explorer/${chain._id}` : `/explorer/${chain._id}`}</code>
-                      <button className="btn btn-ghost btn-sm" style={{ padding: '0 8px', minHeight: 'auto', height: '24px' }} onClick={() => window.open(`/explorer/${chain._id}`, '_blank')}>
+                      <button className="btn btn-ghost btn-sm" style={{ padding: '0 8px', minHeight: 'auto', height: '24px' }} onClick={() => window.open(`/explorer/${chain._id}`, '_blank')} title="Open Explorer">
+                        ↗️
+                      </button>
+                    </div>
+                  </div>
+                  <div className={styles.endpointRow}>
+                    <span className={styles.endpointLabel}>Bridge</span>
+                    <div className={styles.endpointValue}>
+                      <code>{typeof window !== 'undefined' ? `${window.location.origin}/explorer/${chain._id}/bridge` : `/explorer/${chain._id}/bridge`}</code>
+                      <button className="btn btn-ghost btn-sm" style={{ padding: '0 8px', minHeight: 'auto', height: '24px' }} onClick={() => window.open(`/explorer/${chain._id}/bridge`, '_blank')} title="Open Bridge">
+                        ↗️
+                      </button>
+                    </div>
+                  </div>
+                  <div className={styles.endpointRow}>
+                    <span className={styles.endpointLabel}>Staking</span>
+                    <div className={styles.endpointValue}>
+                      <code>{typeof window !== 'undefined' ? `${window.location.origin}/explorer/${chain._id}/staking` : `/explorer/${chain._id}/staking`}</code>
+                      <button className="btn btn-ghost btn-sm" style={{ padding: '0 8px', minHeight: 'auto', height: '24px' }} onClick={() => window.open(`/explorer/${chain._id}/staking`, '_blank')} title="Open Staking">
                         ↗️
                       </button>
                     </div>
