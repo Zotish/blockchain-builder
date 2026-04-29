@@ -19,7 +19,7 @@ export default function AdminDashboard() {
           setError(res.error || 'Unauthorized access');
         }
       } catch (err) {
-        setError('Failed to connect to admin services');
+        setError(err.message || 'Failed to connect to admin services');
       } finally {
         setLoading(false);
       }

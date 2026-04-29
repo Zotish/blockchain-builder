@@ -10,15 +10,20 @@ const router = express.Router();
 const adminMiddleware = async (req, res, next) => {
     try {
         const user = await User.findById(req.userId);
-        const adminEmail = (process.env.ADMIN_EMAIL || 'chandrazotish@gmail.com').toLowerCase();
+        const envAdmin = (process.env.ADMIN_EMAIL || 'chandrazotish@gmail.com').trim().toLowerCase();
+        const userEmail = user?.email?.trim()?.toLowerCase();
         
-        console.log(`🔒 Checking admin access for: ${user?.email} (Expected: ${adminEmail})`);
+        console.log(`[ADMIN_AUTH] Checking: ${userEmail} vs ${envAdmin}`);
 
-        if (user && (user.role === 'admin' || user.email.toLowerCase() === adminEmail)) {
+        if (user && (user.role === 'admin' || userEmail === envAdmin)) {
             next();
         } else {
-            console.warn(`🚫 Admin access denied for: ${user?.email}`);
-            res.status(403).json({ success: false, error: 'Access denied. Admins only.' });
+            const errorMsg = user 
+                ? `Access Denied. User ${userEmail} is not an admin. Expected: ${envAdmin}`
+                : `Access Denied. User ID ${req.userId} not found in database.`;
+            
+            console.warn(`🚫 ${errorMsg}`);
+            res.status(403).json({ success: false, error: errorMsg });
         }
     } catch (err) {
         res.status(500).json({ success: false, error: 'Internal server error in admin auth.' });
