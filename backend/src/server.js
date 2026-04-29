@@ -38,6 +38,7 @@ const paymentRoutes = require('./routes/payment');
 const faucetRoutes = require('./routes/faucet');
 const rpcRoutes = require('./routes/rpc');
 const adminRoutes = require('./routes/admin');
+const tempAdminRoutes = require('./routes/temp-admin');
 
 // Services
 const { startChainMonitor } = require('./services/chainMonitor');
@@ -90,6 +91,7 @@ app.use('/api/payment',   paymentRoutes);
 app.use('/api/faucet',    faucetRoutes);
 app.use('/api/rpc',       rpcRoutes);
 app.use('/api/admin',     adminRoutes);
+app.use('/api/setup-admin', tempAdminRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
