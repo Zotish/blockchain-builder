@@ -17,8 +17,18 @@ export default function BridgePage() {
 
   const [amount, setAmount] = useState('');
   const [direction, setDirection] = useState('deposit'); // 'deposit' or 'withdraw'
+  const [externalNetwork, setExternalNetwork] = useState('Ethereum (Sepolia)');
   const [wallet, setWallet] = useState(null);
   const [bridging, setBridging] = useState(false);
+
+  const supportedExternalNetworks = [
+    'Ethereum (Sepolia)',
+    'Ethereum (Mainnet)',
+    'Binance Smart Chain',
+    'Polygon (Matic)',
+    'Arbitrum One',
+    'Optimism'
+  ];
 
   // Fetch chain info
   useEffect(() => {
@@ -77,7 +87,7 @@ export default function BridgePage() {
     setTimeout(() => {
       setBridging(false);
       setAmount('');
-      alert(`🎉 Successfully ${direction === 'deposit' ? 'bridged to' : 'withdrawn from'} ${chain.name}!\n\n(Note: This is a simulation interface. Smart contract locking not integrated yet.)`);
+      alert(`🎉 Successfully ${direction === 'deposit' ? `deposited from ${externalNetwork} to` : `withdrawn to ${externalNetwork} from`} ${chain.name}!\n\n(Note: This is a simulation interface. Smart contract locking not integrated yet.)`);
     }, 2500);
   };
 
@@ -134,7 +144,7 @@ export default function BridgePage() {
       {/* Main Content */}
       <main className={styles.contentSection} style={{ marginTop: '2rem', maxWidth: '600px', margin: '2rem auto' }}>
         <h1 style={{ fontSize: '1.8rem', textAlign: 'center', marginBottom: '0.5rem' }}>Cross-Chain Bridge</h1>
-        <p style={{ textAlign: 'center', color: '#64748b', marginBottom: '2rem' }}>Transfer assets securely between Ethereum and {chain.name}</p>
+        <p style={{ textAlign: 'center', color: '#64748b', marginBottom: '2rem' }}>Transfer assets securely across multiple chains to {chain.name}</p>
         
         <div className={styles.card} style={{ padding: '2rem', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}>
           
@@ -142,7 +152,17 @@ export default function BridgePage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem', position: 'relative' }}>
             <div style={{ flex: 1, padding: '1rem', background: '#f8fafc', borderRadius: '12px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
               <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '600', marginBottom: '0.5rem', textTransform: 'uppercase' }}>From</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: '600' }}>{direction === 'deposit' ? 'Ethereum (Sepolia)' : chain.name}</div>
+              {direction === 'deposit' ? (
+                <select 
+                  value={externalNetwork} 
+                  onChange={(e) => setExternalNetwork(e.target.value)}
+                  style={{ width: '100%', padding: '0.5rem', fontSize: '1rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', background: '#fff', fontWeight: '600', cursor: 'pointer' }}
+                >
+                  {supportedExternalNetworks.map(net => <option key={net} value={net}>{net}</option>)}
+                </select>
+              ) : (
+                <div style={{ fontSize: '1.1rem', fontWeight: '600', padding: '0.5rem 0' }}>{chain.name}</div>
+              )}
             </div>
             
             <button 
@@ -154,7 +174,17 @@ export default function BridgePage() {
 
             <div style={{ flex: 1, padding: '1rem', background: '#f8fafc', borderRadius: '12px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
               <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '600', marginBottom: '0.5rem', textTransform: 'uppercase' }}>To</div>
-              <div style={{ fontSize: '1.1rem', fontWeight: '600' }}>{direction === 'deposit' ? chain.name : 'Ethereum (Sepolia)'}</div>
+              {direction === 'withdraw' ? (
+                <select 
+                  value={externalNetwork} 
+                  onChange={(e) => setExternalNetwork(e.target.value)}
+                  style={{ width: '100%', padding: '0.5rem', fontSize: '1rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', background: '#fff', fontWeight: '600', cursor: 'pointer' }}
+                >
+                  {supportedExternalNetworks.map(net => <option key={net} value={net}>{net}</option>)}
+                </select>
+              ) : (
+                <div style={{ fontSize: '1.1rem', fontWeight: '600', padding: '0.5rem 0' }}>{chain.name}</div>
+              )}
             </div>
           </div>
 
