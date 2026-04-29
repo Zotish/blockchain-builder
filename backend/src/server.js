@@ -77,10 +77,10 @@ const server = http.createServer(app);
 
 // ── Allowed origins ──────────────────────────────────────
 const allowedOrigins = [
-  config.corsOrigin,
   'https://blockchain-engineering.netlify.app',
   'http://localhost:3000',
   'https://localhost:3000',
+  config.corsOrigin
 ].filter(Boolean);
 
 // ── Socket.io ────────────────────────────────────────────
@@ -90,16 +90,12 @@ const io = new Server(server, {
 });
 app.set('io', io);
 
-// ── Middleware ────────────────────────────────────────────
-// Sentry v8: requestHandler removed — tracing handled automatically via init
-
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-    cb(new Error(`CORS: origin ${origin} not allowed`));
-  },
+  origin: allowedOrigins,
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '10mb' }));
