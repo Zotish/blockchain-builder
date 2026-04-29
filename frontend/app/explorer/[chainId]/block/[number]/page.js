@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '../../../../../lib/api';
-import styles from '../../../public-explorer.module.css';
+import styles from '../../public-explorer.module.css';
 
 export default function BlockDetailsPage() {
   const params = useParams();
