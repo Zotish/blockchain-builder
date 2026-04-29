@@ -1,5 +1,5 @@
 const express = require('express');
-const { authMiddleware } = require('../middleware/auth');
+const authMiddleware = require('../middleware/auth');
 const Chain = require('../models/Chain');
 const User = require('../models/User');
 const { getSSHConnection, runOnVPS, getVPSConfig } = require('../services/vpsService');
