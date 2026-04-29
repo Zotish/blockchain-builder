@@ -50,14 +50,22 @@ async function initAdmin() {
   const adminEmail = process.env.ADMIN_EMAIL;
   if (adminEmail) {
     try {
-      await User.findOneAndUpdate(
-        { email: adminEmail.toLowerCase() },
-        { role: 'admin' }
+      console.log(`🔍 Attempting to set admin for: ${adminEmail}`);
+      const user = await User.findOneAndUpdate(
+        { email: adminEmail.trim().toLowerCase() },
+        { role: 'admin' },
+        { new: true }
       );
-      console.log(`👑 Admin user initialized: ${adminEmail}`);
+      if (user) {
+        console.log(`👑 SUCCESS: ${adminEmail} is now an ADMIN in the database.`);
+      } else {
+        console.warn(`⚠️  WARNING: User with email ${adminEmail} not found in database.`);
+      }
     } catch (err) {
-      console.error('❌ Failed to init admin:', err.message);
+      console.error('❌ CRITICAL: Failed to init admin:', err.message);
     }
+  } else {
+    console.log('ℹ️  No ADMIN_EMAIL environment variable found.');
   }
 }
 
