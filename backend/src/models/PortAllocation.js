@@ -23,7 +23,7 @@ const portAllocationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-portAllocationSchema.index({ rpcPort: 1 });
+// Removed duplicate index to resolve warning
 portAllocationSchema.index({ active: 1 });
 
 module.exports = mongoose.model('PortAllocation', portAllocationSchema);
