@@ -5,6 +5,7 @@ const Deployment = require('../models/Deployment');
 const Payment = require('../models/Payment');
 const { deployChainNode, stopChainNode } = require('../services/dockerService');
 const { deployOnVPS, stopOnVPS, getContainerLogs, getContainerStatus, isVPSAvailable } = require('../services/vpsService');
+const contractService = require('../services/contractService');
 
 const router = express.Router();
 
@@ -279,6 +280,22 @@ async function runDeployment(deployment, chain, io, network) {
       gasPrice: '1000000000', lastSeen: new Date(),
     };
     await chain.save();
+
+    // ── NEW: Automatic Contract Deployment ──────────────────
+    if (chain.type === 'evm') {
+      console.log(`⛓️ Triggering auto-contract deployment for EVM chain ${chain.name}`);
+      // Run in background so deployment response is not delayed
+      contractService.deployCoreContracts(chain._id).catch(console.error);
+    } else {
+      console.log(`⛓️ Triggering non-EVM setup for ${chain.name}`);
+      contractService.setupNonEvmLogic(chain._id).catch(console.error);
+    }
+    // ────────────────────────────────────────────────────────
+
+    io.to(`deployment:${deployment._id}`).emit('deployment:success', {
+      chainId: chain._id,
+      endpoints
+    });
 
     progress = 100;
     await addLog('🎉 Blockchain is live!');

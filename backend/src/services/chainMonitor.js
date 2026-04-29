@@ -73,7 +73,7 @@ async function processChain(chain, io) {
       if (fetched) {
         newStats = {
           blockHeight: fetched.blockHeight ?? chain.stats.blockHeight,
-          txCount: chain.stats.txCount + Math.floor(Math.random() * 5),
+          txCount: chain.stats.txCount, // Stop fake increments for real chains!
           peers: fetched.peers ?? chain.stats.peers,
           gasPrice: fetched.gasPrice ?? chain.stats.gasPrice,
           lastSeen: new Date(),
