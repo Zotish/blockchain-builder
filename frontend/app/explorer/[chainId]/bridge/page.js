@@ -19,6 +19,7 @@ export default function BridgePage() {
   const [direction, setDirection] = useState('deposit'); // 'deposit' or 'withdraw'
   const [externalNetwork, setExternalNetwork] = useState('Ethereum (Sepolia)');
   const [wallet, setWallet] = useState(null);
+  const [userBalance, setUserBalance] = useState(null);
   const [bridging, setBridging] = useState(false);
 
   const supportedExternalNetworks = [
@@ -64,11 +65,24 @@ export default function BridgePage() {
     }
   };
 
+  const fetchBalance = async (account) => {
+    try {
+      const balanceHex = await window.ethereum.request({
+        method: 'eth_getBalance',
+        params: [account, 'latest']
+      });
+      setUserBalance((parseInt(balanceHex, 16) / 1e18).toFixed(4));
+    } catch (err) {
+      console.error("Failed to fetch balance", err);
+    }
+  };
+
   const connectWallet = async () => {
     if (typeof window !== 'undefined' && window.ethereum) {
       try {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         setWallet(accounts[0]);
+        fetchBalance(accounts[0]);
       } catch (err) {
         alert('Wallet connection failed!');
       }
@@ -224,8 +238,9 @@ export default function BridgePage() {
           )}
 
           {wallet && (
-            <div style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.85rem', color: '#64748b' }}>
-              Connected: {wallet.slice(0, 6)}...{wallet.slice(-4)}
+            <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', color: '#64748b' }}>
+              <span>Connected: {wallet.slice(0, 6)}...{wallet.slice(-4)}</span>
+              {userBalance !== null && <span>Balance: {userBalance} {chain.token?.symbol || 'ETH'}</span>}
             </div>
           )}
 

@@ -17,6 +17,7 @@ export default function StakingPage() {
 
   const [amount, setAmount] = useState('');
   const [wallet, setWallet] = useState(null);
+  const [userBalance, setUserBalance] = useState(null);
   const [processing, setProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState('stake'); // stake, unstake
 
@@ -63,11 +64,24 @@ export default function StakingPage() {
     }
   };
 
+  const fetchBalance = async (account) => {
+    try {
+      const balanceHex = await window.ethereum.request({
+        method: 'eth_getBalance',
+        params: [account, 'latest']
+      });
+      setUserBalance((parseInt(balanceHex, 16) / 1e18).toFixed(4));
+    } catch (err) {
+      console.error("Failed to fetch balance", err);
+    }
+  };
+
   const connectWallet = async () => {
     if (typeof window !== 'undefined' && window.ethereum) {
       try {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         setWallet(accounts[0]);
+        fetchBalance(accounts[0]);
       } catch (err) {
         alert('Wallet connection failed!');
       }
@@ -209,7 +223,7 @@ export default function StakingPage() {
             <div style={{ marginBottom: '2rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                 <label style={{ fontSize: '0.9rem', fontWeight: '500', color: '#475569' }}>Amount</label>
-                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Balance: {wallet ? '10,000.00' : '0.00'} {chain.token?.symbol}</span>
+                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Balance: {userBalance !== null ? userBalance : '0.00'} {chain.token?.symbol}</span>
               </div>
               <div style={{ position: 'relative' }}>
                 <input 
@@ -221,7 +235,7 @@ export default function StakingPage() {
                 />
                 <button 
                   style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', background: '#f1f5f9', border: 'none', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
-                  onClick={() => setAmount(wallet ? (activeTab === 'stake' ? '10000' : mockStats.myStaked.replace(',','')) : '0')}
+                  onClick={() => setAmount(wallet ? (activeTab === 'stake' ? (userBalance || '0') : mockStats.myStaked.replace(',','')) : '0')}
                 >
                   MAX
                 </button>
