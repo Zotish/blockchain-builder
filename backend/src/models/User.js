@@ -35,6 +35,11 @@ const userSchema = new mongoose.Schema(
     chainsCreated: { type: Number, default: 0 },
     avatar: { type: String, default: null },
     isVerified: { type: Boolean, default: false },
+    role: {
+      type: String,
+      enum: ['user', 'admin'],
+      default: 'user',
+    },
   },
   { timestamps: true }
 );
