@@ -10,10 +10,11 @@ const router = express.Router();
 const adminMiddleware = async (req, res, next) => {
     try {
         const user = await User.findById(req.userId);
-        const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
+        const adminEmail = (process.env.ADMIN_EMAIL || 'chandrazotish@gmail.com').toLowerCase();
         
-        // Fail-safe: Check if user exists AND (role is admin OR email matches hardcoded admin email)
-        if (user && (user.role === 'admin' || user.email === adminEmail)) {
+        console.log(`🔒 Checking admin access for: ${user?.email} (Expected: ${adminEmail})`);
+
+        if (user && (user.role === 'admin' || user.email.toLowerCase() === adminEmail)) {
             next();
         } else {
             console.warn(`🚫 Admin access denied for: ${user?.email}`);
