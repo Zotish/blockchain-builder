@@ -78,6 +78,7 @@ const server = http.createServer(app);
 // ── Allowed origins ──────────────────────────────────────
 const allowedOrigins = [
   config.corsOrigin,
+  'https://blockchain-engineering.netlify.app',
   'http://localhost:3000',
   'https://localhost:3000',
 ].filter(Boolean);
