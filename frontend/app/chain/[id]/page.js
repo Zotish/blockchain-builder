@@ -61,7 +61,9 @@ export default function ChainDetailPage() {
         ? `${process.env.NEXT_PUBLIC_API_URL}/rpc/${chain._id}`
         : `${window.location.origin}/api/rpc/${chain._id}`;
       
-      const chainIdNum = chain.config?.chainId || 1337;
+      // Geth in --dev mode always uses Chain ID 1337 regardless of config
+      const chainIdNum = (chain.type === 'evm') ? 1337 : (chain.config?.chainId || 1337);
+
       try {
         await window.ethereum.request({
           method: 'wallet_addEthereumChain',
