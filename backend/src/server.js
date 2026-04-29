@@ -37,6 +37,7 @@ const deployRoutes = require('./routes/deploy');
 const paymentRoutes = require('./routes/payment');
 const faucetRoutes = require('./routes/faucet');
 const rpcRoutes = require('./routes/rpc');
+const adminRoutes = require('./routes/admin');
 
 // Services
 const { startChainMonitor } = require('./services/chainMonitor');
@@ -88,6 +89,7 @@ app.use('/api/deploy',    deployRoutes);
 app.use('/api/payment',   paymentRoutes);
 app.use('/api/faucet',    faucetRoutes);
 app.use('/api/rpc',       rpcRoutes);
+app.use('/api/admin',     adminRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

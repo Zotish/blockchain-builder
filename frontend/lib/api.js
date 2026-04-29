@@ -211,6 +211,10 @@ class ApiClient {
   async getChainAdapter(chainId) {
     return this.request(`/chains/${chainId}/adapter`);
   }
+
+  async getAdminStats() {
+    return this.request('/admin/stats');
+  }
 }
 
 const api = new ApiClient();
