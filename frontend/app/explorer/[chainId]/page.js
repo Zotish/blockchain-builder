@@ -268,6 +268,29 @@ export default function PublicExplorerPage() {
           </div>
         </div>
       </section>
+      
+      {/* Core Infrastructure Contracts (NEW) */}
+      {chain.contracts && (
+        <section className={styles.contentSection} style={{ marginTop: '1rem', marginBottom: '-1rem' }}>
+          <div className={styles.contentContainer}>
+            <div className={styles.card} style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)', border: '1px solid #bfdbfe' }}>
+              <div className={styles.cardHeader} style={{ borderBottom: '1px solid #bfdbfe', padding: '1rem 1.5rem' }}>
+                <h2 style={{ fontSize: '1.1rem', color: '#1e40af', margin: 0 }}>⚡ Core Infrastructure Contracts</h2>
+              </div>
+              <div className={styles.cardBody} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', padding: '1.5rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Staking Contract</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: '500', fontFamily: 'monospace', color: '#0f172a', wordBreak: 'break-all' }}>{chain.contracts.staking}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Bridge Contract (L2)</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: '500', fontFamily: 'monospace', color: '#0f172a', wordBreak: 'break-all' }}>{chain.contracts.bridge}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Main Content: Blocks & Txs */}
       <section className={styles.contentSection}>
