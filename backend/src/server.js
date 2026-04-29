@@ -83,18 +83,13 @@ const allowedOrigins = [
   config.corsOrigin
 ].filter(Boolean);
 
-// ── CORS & Security (TOP PRIORITY) ──────────────────────
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// ── CORS & Security (ULTIMATE PERMISSIVE) ────────────────
+app.use(cors()); // Allows everything
 app.use(helmet({ contentSecurityPolicy: false }));
 
 // ── Socket.io ────────────────────────────────────────────
 const io = new Server(server, {
-  cors: { origin: allowedOrigins, methods: ['GET', 'POST'], credentials: true },
+  cors: { origin: '*', methods: ['GET', 'POST'], credentials: true },
   transports: ['websocket', 'polling'],
 });
 app.set('io', io);
