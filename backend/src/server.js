@@ -43,6 +43,23 @@ const tempAdminRoutes = require('./routes/temp-admin');
 // Services
 const { startChainMonitor } = require('./services/chainMonitor');
 const { startCronJobs } = require('./services/cronService');
+const User = require('./models/User');
+
+// Auto-set Admin from Env
+async function initAdmin() {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (adminEmail) {
+    try {
+      await User.findOneAndUpdate(
+        { email: adminEmail.toLowerCase() },
+        { role: 'admin' }
+      );
+      console.log(`👑 Admin user initialized: ${adminEmail}`);
+    } catch (err) {
+      console.error('❌ Failed to init admin:', err.message);
+    }
+  }
+}
 
 const app = express();
 
@@ -137,6 +154,7 @@ app.use((req, res) => {
 async function bootstrap() {
   try {
     await connectDB(config.mongoUri);
+    initAdmin();
   } catch {
     console.warn('⚠️  Running WITHOUT MongoDB.');
   }
