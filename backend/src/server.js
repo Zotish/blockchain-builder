@@ -109,6 +109,47 @@ async function repairPorts() {
   }
 }
 
+/**
+ * Deep Clean: Remove files and containers that are not in the DB
+ */
+async function cleanOrphanedResources() {
+  const Chain = require('./models/Chain');
+  const { getSSHConnection, runOnVPS, getVPSConfig } = require('./services/vpsService');
+  const vpsConfig = getVPSConfig();
+  
+  if (!vpsConfig) return;
+
+  try {
+    console.log('🧹 Starting VPS Deep Clean...');
+    const ssh = await getSSHConnection(vpsConfig);
+    const activeChains = await Chain.find({});
+    const activeNames = new Set();
+    
+    activeChains.forEach(c => {
+      const idStr = c._id.toString().slice(-8);
+      activeNames.add(`cf-testnet-${idStr}`);
+      activeNames.add(`cf-mainnet-${idStr}`);
+    });
+
+    // 1. Prune all unused Docker resources
+    await runOnVPS(ssh, 'docker system prune -a -f --volumes', { allowFail: true });
+
+    // 2. Remove orphaned data directories
+    const foldersStr = await runOnVPS(ssh, 'ls /data/chainforge', { allowFail: true });
+    const folders = foldersStr.split(/\s+/).filter(f => f.startsWith('cf-'));
+
+    for (const folder of folders) {
+      if (!activeNames.has(folder)) {
+        console.log(`🗑️  Removing orphaned folder: ${folder}`);
+        await runOnVPS(ssh, `rm -rf /data/chainforge/${folder}`, { allowFail: true });
+      }
+    }
+    console.log('✨ VPS Deep Clean Completed.');
+  } catch (err) {
+    console.error('❌ VPS Deep Clean failed:', err.message);
+  }
+}
+
 const app = express();
 
 // Railway runs behind a load balancer — trust proxy for rate limiting
@@ -198,6 +239,7 @@ async function bootstrap() {
     await connectDB(config.mongoUri);
     await initAdmin();
     await repairPorts();
+    await cleanOrphanedResources(); // Wipe out old data from deleted chains
   } catch {
     console.warn('⚠️  Running WITHOUT MongoDB.');
   }
