@@ -159,12 +159,15 @@ async function deployOnVPS(chain, network, onLog) {
     await onLog('🛠️  Preparing server environment...');
     await setupVPS(ssh);
 
-    // Pull Docker image
+    // Pull Docker image (with retry)
     await onLog(`📥 Pulling ${chain.type.toUpperCase()} Docker image...`);
-    await runOnVPS(ssh, `docker pull ${template.image}`, {
-      onOutput: (chunk) => {/* suppress verbose pull output */},
-      allowFail: false,
-    });
+    try {
+      await runOnVPS(ssh, `docker pull ${template.image}`, { allowFail: false });
+    } catch (pullErr) {
+      await onLog('⚠️ Initial pull failed, retrying in 5s...');
+      await new Promise(r => setTimeout(r, 5000));
+      await runOnVPS(ssh, `docker pull ${template.image}`, { allowFail: false });
+    }
     await onLog(`✅ Image ready: ${template.image}`);
 
     // Ensure data directory exists and has correct permissions
@@ -283,7 +286,7 @@ async function getContainerStatus(containerName) {
 /**
  * Wait for a blockchain node to be ready (health check)
  */
-async function waitForNode(ssh, healthCmd, onLog, maxRetries = 20, delayMs = 5000) {
+async function waitForNode(ssh, healthCmd, onLog, maxRetries = 40, delayMs = 5000) {
   for (let i = 0; i < maxRetries; i++) {
     await new Promise(r => setTimeout(r, delayMs));
     const result = await runOnVPS(ssh, healthCmd, { allowFail: true });
