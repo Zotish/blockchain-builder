@@ -230,6 +230,10 @@ async function stopOnVPS(chainId, containerName) {
       await runOnVPS(ssh, `rm -rf /data/chainforge/${name}`, { allowFail: true });
     }
     
+    // Prune unused docker resources to reclaim space
+    console.log(`🧹 Pruning unused Docker images and volumes...`);
+    await runOnVPS(ssh, `docker image prune -a -f --filter "until=24h" && docker volume prune -f`, { allowFail: true });
+    
     console.log(`✅ VPS resources cleaned up for chain: ${chainId}`);
   } catch (err) {
     console.warn('Stop VPS container error:', err.message);

@@ -69,6 +69,46 @@ async function initAdmin() {
   }
 }
 
+/**
+ * Emergency Fix: Repair duplicate ports in existing chains
+ */
+async function repairPorts() {
+  const Chain = require('./models/Chain');
+  const { allocatePorts } = require('./services/portManager');
+  const PortAllocation = require('./models/PortAllocation');
+
+  try {
+    console.log('🛠️  Running Port Repair Script...');
+    const chains = await Chain.find({ status: 'deployed' });
+    
+    // Clear old allocations to start fresh and avoid conflicts during repair
+    await PortAllocation.deleteMany({});
+
+    for (const chain of chains) {
+      const containerName = chain.endpoints?.containerName || `cf-${chain.network || 'testnet'}-${chain._id.toString().slice(-8)}`;
+      
+      const newPorts = await allocatePorts(
+        chain._id,
+        chain.type,
+        chain.network || 'testnet',
+        containerName
+      );
+
+      chain.endpoints = {
+        ...chain.endpoints,
+        ...newPorts,
+        rpc: `http://${chain.endpoints?.vpsHost || 'localhost'}:${newPorts.rpcPort}`
+      };
+
+      await chain.save();
+      console.log(`✅ Repaired ports for: ${chain.name} -> RPC: ${newPorts.rpcPort}`);
+    }
+    console.log('✨ Port Repair Completed.');
+  } catch (err) {
+    console.error('❌ Port Repair failed:', err.message);
+  }
+}
+
 const app = express();
 
 // Railway runs behind a load balancer — trust proxy for rate limiting
@@ -156,7 +196,8 @@ app.use((req, res) => {
 async function bootstrap() {
   try {
     await connectDB(config.mongoUri);
-    initAdmin();
+    await initAdmin();
+    await repairPorts();
   } catch {
     console.warn('⚠️  Running WITHOUT MongoDB.');
   }
