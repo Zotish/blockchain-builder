@@ -110,7 +110,7 @@ docker run -d \\
   --rpc-methods Unsafe \\
   --name ${cfg.chainId}-node
 `.trim(),
-    healthCheck: (rpcPort) => `curl -sf http://localhost:${rpcPort}/health`,
+    healthCheck: (rpcPort) => `curl -sf http://localhost:${rpcPort} -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"system_health","params":[],"id":1}'`,
     defaultPorts: { rpcPort: 9944, wsPort: 9944, p2pPort: 30333 },
   },
 
@@ -140,6 +140,7 @@ docker run -d \\
     sed -i 's/127.0.0.1:26657/0.0.0.0:26657/g' /root/.gaia/config/config.toml &&
     sed -i 's/cors_allowed_origins = \\[\\]/cors_allowed_origins = [\\\"*\\\"]/g' /root/.gaia/config/config.toml &&
     gaiad start
+  " || gaiad start
   "
 `.trim(),
     healthCheck: (rpcPort) => `curl -sf http://localhost:${rpcPort}/status`,

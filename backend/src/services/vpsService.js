@@ -167,6 +167,15 @@ async function deployOnVPS(chain, network, onLog) {
     });
     await onLog(`✅ Image ready: ${template.image}`);
 
+    // Ensure data directory exists and has correct permissions
+    const dataDir = `/data/chainforge/${containerName}`;
+    await runOnVPS(ssh, `mkdir -p ${dataDir} && chmod 777 ${dataDir}`, { allowFail: true });
+    
+    // Substrate specific: needs UID 1000
+    if (chain.type === 'substrate') {
+      await runOnVPS(ssh, `chown -R 1000:1000 ${dataDir}`, { allowFail: true });
+    }
+
     // Remove existing container with same name if any
     await runOnVPS(ssh, `docker rm -f ${containerName} 2>/dev/null || true`, { allowFail: true });
 
