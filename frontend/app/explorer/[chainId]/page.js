@@ -166,8 +166,6 @@ export default function PublicExplorerPage() {
         })).filter(b => b.number >= 0);
         setBlocks(mockBlocks);
       }
-    };rer fetch failed:', err.message);
-      }
     };
 
     fetchLatestData();
