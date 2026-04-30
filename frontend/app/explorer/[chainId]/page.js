@@ -55,107 +55,6 @@ export default function PublicExplorerPage() {
       ? `${process.env.NEXT_PUBLIC_API_URL}/rpc/${chain._id}`
       : `${window.location.origin}/api/rpc/${chain._id}`;
 
-    const fetchLatestData = async () => {
-      try {
-        // Fetch latest block number
-        const res = await fetch(rpcUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 })
-        });
-        const data = await res.json();
-        if (!data.result) return;
-        
-        const latestNum = parseInt(data.result, 16);
-        setStats(s => ({ ...s, blockHeight: latestNum }));
-
-        // Fetch last 6 blocks
-        const blockPromises = [];
-        for (let i = latestNum; i > Math.max(-1, latestNum - 6); i--) {
-          blockPromises.push(
-            fetch(rpcUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_getBlockByNumber', params: ['0x' + i.toString(16), true], id: i })
-            }).then(r => r.json())
-          );
-        }
-
-        const blockResults = await Promise.all(blockPromises);
-        const newBlocks = blockResults.map(b => b.result).filter(Boolean);
-        
-        if (mounted) {
-          setBlocks(newBlocks);
-          // Extract txs from these blocks
-          const allTxs = [];
-          newBlocks.forEach(b => {
-            if (b.transactions && b.transactions.length > 0) {
-              // Add block timestamp to txs for UI
-              const blockTxs = b.transactions.map(tx => ({...tx, timestamp: b.timestamp}));
-              allTxs.push(...blockTxs);
-            }
-          });
-          // Sort by newest and take top 6
-          allTxs.sort((a, b) => parseInt(b.blockNumber, 16) - parseInt(a.blockNumber, 16));
-          setTransactions(allTxs.slice(0, 6));
-               // ── Fetch Chain Stats based on Type ────────────────────
-        if (chain.chainType === 'substrate') {
-          // Substrate Stats
-          const subRes = await fetch(rpcUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jsonrpc: '2.0', method: 'chain_getHeader', params: [], id: 1 })
-          });
-          const subData = await subRes.json();
-          if (subData.result && mounted) {
-            const blockNum = parseInt(subData.result.number, 16);
-            setStats(s => ({ ...s, latestBlock: blockNum, gasPrice: 'N/A' }));
-            updateMockBlocks(blockNum);
-          }
-        } else if (chain.chainType === 'solana') {
-          // Solana Stats
-          const solRes = await fetch(rpcUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jsonrpc: '2.0', method: 'getSlot', params: [], id: 1 })
-          });
-          const solData = await solRes.json();
-          if (solData.result && mounted) {
-            const blockNum = solData.result;
-            setStats(s => ({ ...s, latestBlock: blockNum, gasPrice: 'N/A' }));
-            updateMockBlocks(blockNum);
-          }
-        } else if (chain.chainType === 'cosmos') {
-          // Cosmos Stats
-          const cosRes = await fetch(rpcUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jsonrpc: '2.0', method: 'status', params: [], id: 1 })
-          });
-          const cosData = await cosRes.json();
-          if (cosData.result && mounted) {
-            const blockNum = parseInt(cosData.result.sync_info.latest_block_height);
-            setStats(s => ({ ...s, latestBlock: blockNum, gasPrice: 'N/A' }));
-            updateMockBlocks(blockNum);
-          }
-        } else {
-          // EVM Stats (Existing logic)
-          const gasRes = await fetch(rpcUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_gasPrice', params: [], id: 1 })
-          });
-          const gasData = await gasRes.json();
-          if (gasData.result && mounted) {
-            const gwei = (parseInt(gasData.result, 16) / 1e9).toFixed(1);
-            setStats(s => ({ ...s, gasPrice: gwei + ' Gwei' }));
-          }
-        }
-      } catch (err) {
-        console.warn('Explorer fetch failed:', err.message);
-      }
-    };
-
     const updateMockBlocks = (blockNum) => {
       if (blocks.length === 0) {
         const mockBlocks = Array.from({ length: 6 }, (_, i) => ({
@@ -165,6 +64,93 @@ export default function PublicExplorerPage() {
           txCount: 0
         })).filter(b => b.number >= 0);
         setBlocks(mockBlocks);
+      }
+    };
+
+    const fetchLatestData = async () => {
+      try {
+        // ── Step 1: Fetch Latest Block Height ──────────────────
+        let latestNum = 0;
+        if (chain.chainType === 'substrate') {
+          const subRes = await fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', method: 'chain_getHeader', params: [], id: 1 })
+          });
+          const subData = await subRes.json();
+          if (subData.result) latestNum = parseInt(subData.result.number, 16);
+        } else if (chain.chainType === 'solana') {
+          const solRes = await fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', method: 'getSlot', params: [], id: 1 })
+          });
+          const solData = await solRes.json();
+          if (solData.result) latestNum = solData.result;
+        } else if (chain.chainType === 'cosmos') {
+          const cosRes = await fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', method: 'status', params: [], id: 1 })
+          });
+          const cosData = await cosRes.json();
+          if (cosData.result) latestNum = parseInt(cosData.result.sync_info.latest_block_height);
+        } else {
+          const res = await fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 })
+          });
+          const data = await res.json();
+          if (data.result) latestNum = parseInt(data.result, 16);
+        }
+
+        if (!latestNum || !mounted) return;
+        setStats(s => ({ ...s, latestBlock: latestNum, blockHeight: latestNum }));
+        updateMockBlocks(latestNum);
+
+        // ── Step 2: Fetch Recent Blocks (EVM Only for now) ─────
+        if (chain.chainType === 'evm' || !chain.chainType) {
+          const blockPromises = [];
+          for (let i = latestNum; i > Math.max(-1, latestNum - 6); i--) {
+            blockPromises.push(
+              fetch(rpcUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_getBlockByNumber', params: ['0x' + i.toString(16), true], id: i })
+              }).then(r => r.json())
+            );
+          }
+          const blockResults = await Promise.all(blockPromises);
+          const newBlocks = blockResults.map(b => b.result).filter(Boolean);
+          
+          if (mounted) {
+            setBlocks(newBlocks);
+            const allTxs = [];
+            newBlocks.forEach(b => {
+              if (b.transactions && b.transactions.length > 0) {
+                const blockTxs = b.transactions.map(tx => ({...tx, timestamp: b.timestamp}));
+                allTxs.push(...blockTxs);
+              }
+            });
+            allTxs.sort((a, b) => parseInt(b.blockNumber, 16) - parseInt(a.blockNumber, 16));
+            setTransactions(allTxs.slice(0, 6));
+
+            // Fetch Gas Price
+            const gasRes = await fetch(rpcUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_gasPrice', params: [], id: 1 })
+            });
+            const gasData = await gasRes.json();
+            if (gasData.result) {
+              const gwei = (parseInt(gasData.result, 16) / 1e9).toFixed(1);
+              setStats(s => ({ ...s, gasPrice: gwei + ' Gwei' }));
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Explorer fetch failed:', err.message);
       }
     };
 
