@@ -49,27 +49,26 @@ export default function PublicExplorerPage() {
     if (!chain || chain.status !== 'deployed' || !chain.endpoints?.rpc) return;
 
     let mounted = true;
-    
+
     // Proxy the RPC request to avoid Mixed Content (HTTPS -> HTTP) blocks
     const rpcUrl = process.env.NEXT_PUBLIC_API_URL 
       ? `${process.env.NEXT_PUBLIC_API_URL}/rpc/${chain._id}`
       : `${window.location.origin}/api/rpc/${chain._id}`;
 
     const updateMockBlocks = (blockNum) => {
-      if (blocks.length === 0) {
-        const mockBlocks = Array.from({ length: 6 }, (_, i) => ({
+      setBlocks(prev => {
+        if (prev && prev.length > 0) return prev;
+        return Array.from({ length: 6 }, (_, i) => ({
           number: blockNum - i,
           hash: '0x' + Math.random().toString(16).slice(2, 66),
           timestamp: Date.now() - (i * 6000),
           txCount: 0
         })).filter(b => b.number >= 0);
-        setBlocks(mockBlocks);
-      }
+      });
     };
 
     const fetchLatestData = async () => {
       try {
-        // ── Step 1: Fetch Latest Block Height ──────────────────
         let latestNum = 0;
         if (chain.chainType === 'substrate') {
           const subRes = await fetch(rpcUrl, {
@@ -106,10 +105,10 @@ export default function PublicExplorerPage() {
         }
 
         if (!latestNum || !mounted) return;
+        
         setStats(s => ({ ...s, latestBlock: latestNum, blockHeight: latestNum }));
         updateMockBlocks(latestNum);
 
-        // ── Step 2: Fetch Recent Blocks (EVM Only for now) ─────
         if (chain.chainType === 'evm' || !chain.chainType) {
           const blockPromises = [];
           for (let i = latestNum; i > Math.max(-1, latestNum - 6); i--) {
@@ -136,7 +135,6 @@ export default function PublicExplorerPage() {
             allTxs.sort((a, b) => parseInt(b.blockNumber, 16) - parseInt(a.blockNumber, 16));
             setTransactions(allTxs.slice(0, 6));
 
-            // Fetch Gas Price
             const gasRes = await fetch(rpcUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
