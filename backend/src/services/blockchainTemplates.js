@@ -121,7 +121,7 @@ docker run -d \\
   // Cosmos SDK — via Ignite CLI / gaiad
   // ─────────────────────────────────────────────────
   cosmos: {
-    image: 'ghcr.io/cosmos/gaia:latest',
+    image: 'ghcr.io/cosmos/gaia:v17.1.0',
     getDockerCmd: (cfg) => `
 docker run -d \\
   --name ${cfg.containerName} \\
@@ -133,17 +133,18 @@ docker run -d \\
   -p ${cfg.p2pPort}:26656 \\
   -v /data/chainforge/${cfg.containerName}:/root/.gaia \\
   --network chainforge-net \\
-  ghcr.io/cosmos/gaia:latest \\
+  ghcr.io/cosmos/gaia:v17.1.0 \\
   sh -c "
-    gaiad init ${cfg.containerName} --chain-id ${cfg.chainId}-1 &&
-    gaiad keys add validator --keyring-backend test &&
-    gaiad genesis add-genesis-account validator 1000000000stake --keyring-backend test &&
-    gaiad genesis gentx validator 100000000stake --chain-id ${cfg.chainId}-1 --keyring-backend test &&
-    gaiad genesis collect-gentxs &&
-    sed -i 's/127.0.0.1:26657/0.0.0.0:26657/g' /root/.gaia/config/config.toml &&
-    sed -i 's/cors_allowed_origins = \\[\\]/cors_allowed_origins = [\\\"*\\\"]/g' /root/.gaia/config/config.toml &&
+    if [ ! -f /root/.gaia/config/config.toml ]; then
+      gaiad init ${cfg.containerName} --chain-id ${cfg.chainId}-1 &&
+      gaiad keys add validator --keyring-backend test &&
+      gaiad genesis add-genesis-account validator 1000000000stake --keyring-backend test &&
+      gaiad genesis gentx validator 100000000stake --chain-id ${cfg.chainId}-1 --keyring-backend test &&
+      gaiad genesis collect-gentxs &&
+      sed -i 's/127.0.0.1:26657/0.0.0.0:26657/g' /root/.gaia/config/config.toml &&
+      sed -i 's/cors_allowed_origins = \\[\\]/cors_allowed_origins = [\\\"*\\\"]/g' /root/.gaia/config/config.toml
+    fi
     gaiad start
-  " || gaiad start
   "
 `.trim(),
     healthCheck: (rpcPort) => `curl -sf http://localhost:${rpcPort}/status`,
