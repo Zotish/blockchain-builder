@@ -80,7 +80,7 @@ function getVPSConfig() {
     port: parseInt(process.env.VPS_PORT || '22'),
     username: process.env.VPS_USER || 'root',
     privateKey: process.env.VPS_SSH_KEY
-      ? process.env.VPS_SSH_KEY.replace(/\\n/g, '\n') // Railway stores newlines as \n
+      ? process.env.VPS_SSH_KEY.replace(/\\n/g, '\n').trim() + '\n'
       : undefined,
     password: process.env.VPS_PASSWORD,
   };
@@ -99,11 +99,11 @@ async function isVPSAvailable() {
   console.log(`🖥️  VPS: auth method = ${config.privateKey ? 'SSH_KEY' : config.password ? 'PASSWORD' : 'NONE'}`);
   try {
     const ssh = await getSSHConnection(config);
-    const result = await runOnVPS(ssh, 'docker --version', { allowFail: true });
-    console.log(`🖥️  VPS: docker = ${result}`);
+    await ssh.execCommand('echo ping');
+    console.log(`✅ VPS: ${config.host} is reachable.`);
     return true;
   } catch (err) {
-    console.error(`🖥️  VPS: SSH FAILED — ${err.message}`);
+    console.error(`❌ VPS: ${config.host} connection failed:`, err.message);
     return false;
   }
 }
