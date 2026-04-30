@@ -45,21 +45,26 @@ router.get('/stats', authMiddleware, adminMiddleware, async (req, res) => {
         const vpsConfig = getVPSConfig();
         let vpsHealth = { cpu: 'N/A', ram: 'N/A', disk: 'N/A', containers: 0 };
 
-        if (vpsConfig) {
-            const ssh = await getSSHConnection(vpsConfig);
-            
-            // Get CPU/RAM usage using 'top' and 'free'
-            const ramInfo = await runOnVPS(ssh, "free -m | awk 'NR==2{printf \"%.2f%%\", $3*100/$2}'");
-            const cpuInfo = await runOnVPS(ssh, "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1\"%\"}'");
-            const diskInfo = await runOnVPS(ssh, "df -h / | awk 'NR==2{print $5}'");
-            const containerCount = await runOnVPS(ssh, "docker ps -q | wc -l");
+        if (vpsConfig && vpsConfig.host) {
+            try {
+                const ssh = await getSSHConnection(vpsConfig);
+                
+                // Get CPU/RAM usage using 'top' and 'free'
+                const ramInfo = await runOnVPS(ssh, "free -m | awk 'NR==2{printf \"%.2f%%\", $3*100/$2}'");
+                const cpuInfo = await runOnVPS(ssh, "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1\"%\"}'");
+                const diskInfo = await runOnVPS(ssh, "df -h / | awk 'NR==2{print $5}'");
+                const containerCount = await runOnVPS(ssh, "docker ps -q | wc -l");
 
-            vpsHealth = {
-                cpu: cpuInfo.trim(),
-                ram: ramInfo.trim(),
-                disk: diskInfo.trim(),
-                containers: parseInt(containerCount.trim())
-            };
+                vpsHealth = {
+                    cpu: cpuInfo.trim(),
+                    ram: ramInfo.trim(),
+                    disk: diskInfo.trim(),
+                    containers: parseInt(containerCount.trim()) || 0
+                };
+            } catch (sshErr) {
+                console.error('⚠️ VPS SSH failed:', sshErr.message);
+                vpsHealth.cpu = 'Server Offline';
+            }
         }
 
         res.json({
