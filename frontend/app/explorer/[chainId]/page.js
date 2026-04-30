@@ -98,9 +98,7 @@ export default function PublicExplorerPage() {
           // Sort by newest and take top 6
           allTxs.sort((a, b) => parseInt(b.blockNumber, 16) - parseInt(a.blockNumber, 16));
           setTransactions(allTxs.slice(0, 6));
-        }
-
-        // ── Fetch Chain Stats based on Type ────────────────────
+               // ── Fetch Chain Stats based on Type ────────────────────
         if (chain.chainType === 'substrate') {
           // Substrate Stats
           const subRes = await fetch(rpcUrl, {
@@ -112,17 +110,33 @@ export default function PublicExplorerPage() {
           if (subData.result && mounted) {
             const blockNum = parseInt(subData.result.number, 16);
             setStats(s => ({ ...s, latestBlock: blockNum, gasPrice: 'N/A' }));
-            
-            // Fetch blocks for substrate (simplified mock for now)
-            if (blocks.length === 0) {
-              const mockBlocks = Array.from({ length: 6 }, (_, i) => ({
-                number: blockNum - i,
-                hash: '0x' + Math.random().toString(16).slice(2, 66),
-                timestamp: Date.now() - (i * 6000),
-                txCount: 0
-              })).filter(b => b.number >= 0);
-              setBlocks(mockBlocks);
-            }
+            updateMockBlocks(blockNum);
+          }
+        } else if (chain.chainType === 'solana') {
+          // Solana Stats
+          const solRes = await fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', method: 'getSlot', params: [], id: 1 })
+          });
+          const solData = await solRes.json();
+          if (solData.result && mounted) {
+            const blockNum = solData.result;
+            setStats(s => ({ ...s, latestBlock: blockNum, gasPrice: 'N/A' }));
+            updateMockBlocks(blockNum);
+          }
+        } else if (chain.chainType === 'cosmos') {
+          // Cosmos Stats
+          const cosRes = await fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', method: 'status', params: [], id: 1 })
+          });
+          const cosData = await cosRes.json();
+          if (cosData.result && mounted) {
+            const blockNum = parseInt(cosData.result.sync_info.latest_block_height);
+            setStats(s => ({ ...s, latestBlock: blockNum, gasPrice: 'N/A' }));
+            updateMockBlocks(blockNum);
           }
         } else {
           // EVM Stats (Existing logic)
@@ -137,9 +151,22 @@ export default function PublicExplorerPage() {
             setStats(s => ({ ...s, gasPrice: gwei + ' Gwei' }));
           }
         }
-
       } catch (err) {
         console.warn('Explorer fetch failed:', err.message);
+      }
+    };
+
+    const updateMockBlocks = (blockNum) => {
+      if (blocks.length === 0) {
+        const mockBlocks = Array.from({ length: 6 }, (_, i) => ({
+          number: blockNum - i,
+          hash: '0x' + Math.random().toString(16).slice(2, 66),
+          timestamp: Date.now() - (i * 6000),
+          txCount: 0
+        })).filter(b => b.number >= 0);
+        setBlocks(mockBlocks);
+      }
+    };rer fetch failed:', err.message);
       }
     };
 

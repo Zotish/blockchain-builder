@@ -12,6 +12,7 @@ const chainSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
+      lowercase: true, // Automatically convert to lowercase
       enum: ['evm', 'substrate', 'cosmos', 'hyperledger', 'solana', 'dag', 'custom'],
     },
     template: { type: String, default: null },
