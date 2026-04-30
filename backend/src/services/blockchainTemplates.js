@@ -108,7 +108,10 @@ docker run -d \\
   --rpc-port 9944 \\
   --port 30333 \\
   --rpc-methods Unsafe \\
-  --name ${cfg.chainId}-node
+  --name ${cfg.chainId}-node \\
+  --alice \\
+  --validator \\
+  --force-authoring
 `.trim(),
     healthCheck: (rpcPort) => `curl -sf http://localhost:${rpcPort} -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"system_health","params":[],"id":1}'`,
     defaultPorts: { rpcPort: 9944, wsPort: 9944, p2pPort: 30333 },

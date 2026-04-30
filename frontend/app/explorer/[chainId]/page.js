@@ -100,16 +100,42 @@ export default function PublicExplorerPage() {
           setTransactions(allTxs.slice(0, 6));
         }
 
-        // Fetch Gas Price
-        const gasRes = await fetch(rpcUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_gasPrice', params: [], id: 1 })
-        });
-        const gasData = await gasRes.json();
-        if (gasData.result && mounted) {
-          const gwei = (parseInt(gasData.result, 16) / 1e9).toFixed(1);
-          setStats(s => ({ ...s, gasPrice: gwei + ' Gwei' }));
+        // ── Fetch Chain Stats based on Type ────────────────────
+        if (chain.chainType === 'substrate') {
+          // Substrate Stats
+          const subRes = await fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', method: 'chain_getHeader', params: [], id: 1 })
+          });
+          const subData = await subRes.json();
+          if (subData.result && mounted) {
+            const blockNum = parseInt(subData.result.number, 16);
+            setStats(s => ({ ...s, latestBlock: blockNum, gasPrice: 'N/A' }));
+            
+            // Fetch blocks for substrate (simplified mock for now)
+            if (blocks.length === 0) {
+              const mockBlocks = Array.from({ length: 6 }, (_, i) => ({
+                number: blockNum - i,
+                hash: '0x' + Math.random().toString(16).slice(2, 66),
+                timestamp: Date.now() - (i * 6000),
+                txCount: 0
+              })).filter(b => b.number >= 0);
+              setBlocks(mockBlocks);
+            }
+          }
+        } else {
+          // EVM Stats (Existing logic)
+          const gasRes = await fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_gasPrice', params: [], id: 1 })
+          });
+          const gasData = await gasRes.json();
+          if (gasData.result && mounted) {
+            const gwei = (parseInt(gasData.result, 16) / 1e9).toFixed(1);
+            setStats(s => ({ ...s, gasPrice: gwei + ' Gwei' }));
+          }
         }
 
       } catch (err) {
