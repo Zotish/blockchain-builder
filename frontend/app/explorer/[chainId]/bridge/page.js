@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '../../../../lib/api';
+import { getWalletAdapter } from '../../../../lib/walletAdapters';
 import styles from '../public-explorer.module.css';
 
 export default function BridgePage() {
@@ -66,28 +67,25 @@ export default function BridgePage() {
   };
 
   const fetchBalance = async (account) => {
+    if (!chain) return;
     try {
-      const balanceHex = await window.ethereum.request({
-        method: 'eth_getBalance',
-        params: [account, 'latest']
-      });
-      setUserBalance((parseInt(balanceHex, 16) / 1e18).toFixed(4));
+      const adapter = getWalletAdapter(chain.chainType);
+      const balance = await adapter.getBalance(account);
+      setUserBalance(balance);
     } catch (err) {
       console.error("Failed to fetch balance", err);
     }
   };
 
   const connectWallet = async () => {
-    if (typeof window !== 'undefined' && window.ethereum) {
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        setWallet(accounts[0]);
-        fetchBalance(accounts[0]);
-      } catch (err) {
-        alert('Wallet connection failed!');
-      }
-    } else {
-      alert('Please install MetaMask!');
+    if (!chain) return;
+    try {
+      const adapter = getWalletAdapter(chain.chainType);
+      const address = await adapter.connect();
+      setWallet(address);
+      fetchBalance(address);
+    } catch (err) {
+      alert(err.message || 'Wallet connection failed!');
     }
   };
 

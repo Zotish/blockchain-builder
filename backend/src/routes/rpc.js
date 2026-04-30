@@ -16,21 +16,31 @@ router.post('/:chainId', async (req, res) => {
 
     const rpcUrl = chain.endpoints.rpc;
 
-    // Forward the JSON-RPC request to the VPS node using native fetch
+    // Forward the request to the VPS node
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
+    const headers = { 'Content-Type': 'application/json' };
+    
+    // If it's a Substrate or other non-EVM chain, they might need different headers
+    // For now we keep it flexible
     const rpcRes = await fetch(rpcUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(req.body),
       signal: controller.signal
     });
     
     clearTimeout(timeoutId);
 
-    const data = await rpcRes.json();
-    res.status(rpcRes.status).json(data);
+    const contentType = rpcRes.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      const data = await rpcRes.json();
+      res.status(rpcRes.status).json(data);
+    } else {
+      const text = await rpcRes.text();
+      res.status(rpcRes.status).send(text);
+    }
   } catch (err) {
     if (err.name === 'AbortError') {
       return res.status(504).json({ error: 'Gateway Timeout - Node did not respond in time' });

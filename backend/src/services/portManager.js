@@ -14,18 +14,30 @@ const PORT_STEP  = 10; // each chain uses a block of 10 ports
  * Allocate unique ports for a new chain node
  */
 async function allocatePorts(chainId, chainType, network, containerName) {
-  // Find the highest allocated port in DB
-  const last = await PortAllocation.findOne({ active: true }).sort({ rpcPort: -1 });
-  let nextPort = last ? last.rpcPort + PORT_STEP : PORT_START;
+  let rpcPort = PORT_START;
+  let wsPort, p2pPort;
+  let collision = true;
 
-  // Safety: don't go above PORT_END
-  if (nextPort + 3 > PORT_END) {
-    throw new Error('Port pool exhausted. Please free some chain resources.');
+  // Loop until we find a block of ports that is not in use
+  while (collision) {
+    const existing = await PortAllocation.findOne({ 
+      active: true, 
+      $or: [
+        { rpcPort: rpcPort },
+        { wsPort:  rpcPort + 1 },
+        { p2pPort: rpcPort + 3 }
+      ]
+    });
+
+    if (!existing) {
+      collision = false;
+      wsPort  = rpcPort + 1;
+      p2pPort = rpcPort + 3;
+    } else {
+      rpcPort += PORT_STEP;
+      if (rpcPort > PORT_END) throw new Error('Port pool exhausted.');
+    }
   }
-
-  const rpcPort = nextPort;
-  const wsPort  = nextPort + 1;
-  const p2pPort = nextPort + 3;
 
   // Save to DB
   await PortAllocation.create({
