@@ -320,5 +320,6 @@ module.exports = {
   getContainerStatus,
   isVPSAvailable,
   getSSHConnection,
+  runOnVPS,
   getVPSConfig,
 };
