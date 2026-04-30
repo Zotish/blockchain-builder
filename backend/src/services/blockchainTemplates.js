@@ -89,7 +89,7 @@ docker run -d \\
   // Substrate — Polkadot SDK
   // ─────────────────────────────────────────────────
   substrate: {
-    image: 'paritytech/substrate-node:latest',
+    image: 'parity/substrate:latest',
     getDockerCmd: (cfg) => `
 docker run -d \\
   --name ${cfg.containerName} \\
@@ -100,7 +100,7 @@ docker run -d \\
   -p ${cfg.p2pPort}:30333 \\
   -v /data/chainforge/${cfg.containerName}:/data \\
   --network chainforge-net \\
-  paritytech/substrate-node:latest \\
+  parity/substrate:latest \\
   --dev \\
   --base-path /data \\
   --rpc-external \\
