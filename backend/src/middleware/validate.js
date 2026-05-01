@@ -61,7 +61,7 @@ const createChainSchema = z.object({
     .regex(/^[A-Z0-9]+$/, 'Symbol must be uppercase letters/numbers')
     .optional(),
   consensus: z.string().optional(),
-  blockTime: z.number().int().min(0).max(120).optional(),
+  blockTime: z.number().min(0).max(120).optional(),
   blockGasLimit: z.string().optional(),
   networkType: z.enum(['public', 'private', 'consortium']).optional(),
   token: z
