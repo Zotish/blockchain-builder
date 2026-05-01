@@ -121,7 +121,7 @@ docker run -d \\
   // Cosmos SDK — via Ignite CLI / gaiad
   // ─────────────────────────────────────────────────
   cosmos: {
-    image: 'ghcr.io/cosmos/gaia:v17.1.0',
+    image: 'ghcr.io/cosmos/gaia:v27.2.0',
     getDockerCmd: (cfg) => `
 docker run -d \\
   --name ${cfg.containerName} \\
@@ -133,7 +133,7 @@ docker run -d \\
   -p ${cfg.p2pPort}:26656 \\
   -v /data/chainforge/${cfg.containerName}:/root/.gaia \\
   --network chainforge-net \\
-  ghcr.io/cosmos/gaia:v17.1.0 \\
+  ghcr.io/cosmos/gaia:v27.2.0 \\
   sh -c "
     if [ ! -f /root/.gaia/config/config.toml ]; then
       gaiad init ${cfg.containerName} --chain-id ${cfg.chainId}-1 &&
