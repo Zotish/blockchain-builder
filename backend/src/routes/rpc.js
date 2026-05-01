@@ -3,9 +3,9 @@ const Chain = require('../models/Chain');
 
 const router = express.Router();
 
-// ── POST /rpc/:chainId ──────────────────────────────────
-// Proxy JSON-RPC requests to the actual Hetzner node to bypass MetaMask HTTPS restrictions.
-router.post('/:chainId', async (req, res) => {
+// ── ALL /rpc/:chainId ──────────────────────────────────
+// Proxy JSON-RPC (POST) and REST (GET) requests to the actual Hetzner node
+router.all('/:chainId*', async (req, res) => {
   try {
     const chain = await Chain.findById(req.params.chainId);
     if (!chain) return res.status(404).json({ error: 'Chain not found' });
@@ -14,23 +14,27 @@ router.post('/:chainId', async (req, res) => {
       return res.status(503).json({ error: 'Chain node is offline or not deployed' });
     }
 
-    const rpcUrl = chain.endpoints.rpc;
+    // Handle nested paths (e.g., /api/rpc/ID/block?height=1)
+    const extraPath = req.params[0] || '';
+    const rpcUrl = new URL(chain.endpoints.rpc + extraPath);
+    
+    // Forward query params
+    Object.keys(req.query).forEach(key => rpcUrl.searchParams.append(key, req.query[key]));
 
-    // Forward the request to the VPS node
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-    const headers = { 'Content-Type': 'application/json' };
-    
-    // If it's a Substrate or other non-EVM chain, they might need different headers
-    // For now we keep it flexible
-    const rpcRes = await fetch(rpcUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(req.body),
+    const options = {
+      method: req.method,
+      headers: { 'Content-Type': 'application/json' },
       signal: controller.signal
-    });
-    
+    };
+
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      options.body = JSON.stringify(req.body);
+    }
+
+    const rpcRes = await fetch(rpcUrl.toString(), options);
     clearTimeout(timeoutId);
 
     const contentType = rpcRes.headers.get('content-type');
@@ -45,6 +49,7 @@ router.post('/:chainId', async (req, res) => {
     if (err.name === 'AbortError') {
       return res.status(504).json({ error: 'Gateway Timeout - Node did not respond in time' });
     }
+    console.error('RPC Proxy Error:', err);
     res.status(502).json({ error: 'Bad Gateway - Node might be unresponsive' });
   }
 });

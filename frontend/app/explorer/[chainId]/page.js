@@ -92,7 +92,7 @@ export default function PublicExplorerPage() {
     const fetchLatestData = async () => {
       try {
         let latestNum = 0;
-        let chainType = chain.chainType || 'evm';
+        let chainType = chain.type || 'evm';
 
         if (chainType === 'substrate') {
           const res = await fetch(rpcUrl, {
