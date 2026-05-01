@@ -55,45 +55,69 @@ export default function PublicExplorerPage() {
       ? `${process.env.NEXT_PUBLIC_API_URL}/rpc/${chain._id}`
       : `${window.location.origin}/api/rpc/${chain._id}`;
 
-    const updateMockBlocks = (blockNum) => {
-      setBlocks(prev => {
-        if (prev && prev.length > 0) return prev;
-        return Array.from({ length: 6 }, (_, i) => ({
-          number: blockNum - i,
-          hash: '0x' + Math.random().toString(16).slice(2, 66),
-          timestamp: Date.now() - (i * 6000),
-          txCount: 0
-        })).filter(b => b.number >= 0);
-      });
+    const normalizeBlock = (b, type) => {
+      if (type === 'substrate') {
+        return {
+          number: parseInt(b.block.header.number, 16) || b.block.header.number,
+          hash: b.block.header.parentHash, // Substrate header doesn't easily show own hash in some RPCs, using parent as proxy or placeholder
+          timestamp: Date.now(), // Substrate RPCs often require a separate call for timestamp, using current as fallback
+          miner: 'Validator',
+          transactions: b.block.extrinsics || [],
+          gasUsed: '0x0', gasLimit: '0x1'
+        };
+      }
+      if (type === 'cosmos') {
+        return {
+          number: parseInt(b.block.header.height),
+          hash: b.block_id.hash,
+          timestamp: b.block.header.time,
+          miner: b.block.header.proposer_address,
+          transactions: b.block.data.txs || [],
+          gasUsed: '0x0', gasLimit: '0x1'
+        };
+      }
+      if (type === 'solana') {
+        return {
+          number: b.slot || b.number,
+          hash: b.blockhash || '...',
+          timestamp: (b.blockTime * 1000) || Date.now(),
+          miner: 'Leader',
+          transactions: b.transactions || [],
+          gasUsed: '0x0', gasLimit: '0x1'
+        };
+      }
+      return b; // EVM is already normalized
     };
 
     const fetchLatestData = async () => {
       try {
         let latestNum = 0;
-        if (chain.chainType === 'substrate') {
-          const subRes = await fetch(rpcUrl, {
+        let chainType = chain.chainType || 'evm';
+
+        if (chainType === 'substrate') {
+          const res = await fetch(rpcUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ jsonrpc: '2.0', method: 'chain_getHeader', params: [], id: 1 })
           });
-          const subData = await subRes.json();
-          if (subData.result) latestNum = parseInt(subData.result.number, 16);
-        } else if (chain.chainType === 'solana') {
-          const solRes = await fetch(rpcUrl, {
+          const data = await res.json();
+          if (data.result) latestNum = parseInt(data.result.number, 16);
+        } else if (chainType === 'solana') {
+          const res = await fetch(rpcUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ jsonrpc: '2.0', method: 'getSlot', params: [], id: 1 })
           });
-          const solData = await solRes.json();
-          if (solData.result) latestNum = solData.result;
-        } else if (chain.chainType === 'cosmos') {
-          const cosRes = await fetch(rpcUrl, {
+          const data = await res.json();
+          if (data.result) latestNum = data.result;
+        } else if (chainType === 'cosmos') {
+          const res = await fetch(rpcUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ jsonrpc: '2.0', method: 'status', params: [], id: 1 })
           });
-          const cosData = await cosRes.json();
-          if (cosData.result) latestNum = parseInt(cosData.result.sync_info.latest_block_height);
+          const data = await res.json();
+          if (data.result) latestNum = parseInt(data.result.sync_info.latest_block_height);
         } else {
           const res = await fetch(rpcUrl, {
             method: 'POST',
@@ -105,51 +129,94 @@ export default function PublicExplorerPage() {
         }
 
         if (!latestNum || !mounted) return;
-        
         setStats(s => ({ ...s, latestBlock: latestNum, blockHeight: latestNum }));
-        updateMockBlocks(latestNum);
 
-        if (chain.chainType === 'evm' || !chain.chainType) {
-          const blockPromises = [];
-          for (let i = latestNum; i > Math.max(-1, latestNum - 6); i--) {
+        // Fetch recent blocks (Top 6)
+        const blockPromises = [];
+        const count = 6;
+
+        if (chainType === 'evm') {
+          for (let i = latestNum; i > Math.max(-1, latestNum - count); i--) {
             blockPromises.push(
               fetch(rpcUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_getBlockByNumber', params: ['0x' + i.toString(16), true], id: i })
-              }).then(r => r.json())
+              }).then(r => r.json()).then(d => d.result)
             );
           }
-          const blockResults = await Promise.all(blockPromises);
-          const newBlocks = blockResults.map(b => b.result).filter(Boolean);
-          
-          if (mounted) {
-            setBlocks(newBlocks);
-            const allTxs = [];
-            newBlocks.forEach(b => {
-              if (b.transactions && b.transactions.length > 0) {
-                const blockTxs = b.transactions.map(tx => ({...tx, timestamp: b.timestamp}));
-                allTxs.push(...blockTxs);
-              }
-            });
-            allTxs.sort((a, b) => parseInt(b.blockNumber, 16) - parseInt(a.blockNumber, 16));
-            setTransactions(allTxs.slice(0, 6));
-
-            const gasRes = await fetch(rpcUrl, {
+        } else if (chainType === 'cosmos') {
+          for (let i = latestNum; i > Math.max(0, latestNum - count); i--) {
+            blockPromises.push(
+              fetch(`${rpcUrl}/block?height=${i}`).then(r => r.json()).then(d => d.result)
+            );
+          }
+        } else if (chainType === 'substrate') {
+          // Substrate requires getting hash first, then block
+          // For simplicity in polling, we fetch the last few headers if possible or just the latest
+          blockPromises.push(
+            fetch(rpcUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_gasPrice', params: [], id: 1 })
-            });
-            const gasData = await gasRes.json();
-            if (gasData.result) {
-              const gwei = (parseInt(gasData.result, 16) / 1e9).toFixed(1);
-              setStats(s => ({ ...s, gasPrice: gwei + ' Gwei' }));
+              body: JSON.stringify({ jsonrpc: '2.0', method: 'chain_getBlock', params: [], id: 1 })
+            }).then(r => r.json()).then(d => d.result)
+          );
+        }
+
+        const results = await Promise.all(blockPromises);
+        const validBlocks = results.filter(Boolean).map(b => normalizeBlock(b, chainType));
+        
+        if (mounted && validBlocks.length > 0) {
+          setBlocks(validBlocks);
+          
+          // Extract transactions
+          const allTxs = [];
+          validBlocks.forEach(b => {
+            if (b.transactions && b.transactions.length > 0) {
+              const txs = b.transactions.map(tx => ({
+                hash: tx.hash || tx.transactionIndex || Math.random().toString(36).slice(2),
+                from: tx.from || 'Unknown',
+                to: tx.to || 'Unknown',
+                value: tx.value || '0x0',
+                timestamp: b.timestamp,
+                blockNumber: b.number
+              }));
+              allTxs.push(...txs);
             }
+          });
+          setTransactions(allTxs.slice(0, 6));
+        } else if (mounted) {
+          updateMockBlocks(latestNum);
+        }
+
+        // Fetch Gas Price (EVM Only)
+        if (chainType === 'evm' && mounted) {
+          const gasRes = await fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_gasPrice', params: [], id: 1 })
+          });
+          const gasData = await gasRes.json();
+          if (gasData.result) {
+            const gwei = (parseInt(gasData.result, 16) / 1e9).toFixed(1);
+            setStats(s => ({ ...s, gasPrice: gwei + ' Gwei' }));
           }
         }
       } catch (err) {
         console.warn('Explorer fetch failed:', err.message);
       }
+    };
+
+    const updateMockBlocks = (blockNum) => {
+      setBlocks(prev => {
+        if (prev && prev.length > 0) return prev;
+        return Array.from({ length: 6 }, (_, i) => ({
+          number: blockNum - i,
+          hash: '0x' + Math.random().toString(16).slice(2, 66),
+          timestamp: Date.now() - (i * 6000),
+          txCount: 0
+        })).filter(b => b.number >= 0);
+      });
     };
 
     fetchLatestData();
