@@ -134,7 +134,18 @@ async function cleanOrphanedResources() {
     // 1. Prune all unused Docker resources
     await runOnVPS(ssh, 'docker system prune -a -f --volumes', { allowFail: true });
 
-    // 2. Remove orphaned data directories
+    // 2. Stop and remove orphaned running containers
+    const runningStr = await runOnVPS(ssh, "docker ps --format '{{.Names}}'", { allowFail: true });
+    const runningContainers = runningStr.split(/\s+/).filter(name => name.startsWith('cf-'));
+    
+    for (const name of runningContainers) {
+      if (!activeNames.has(name)) {
+        console.log(`🛑 Stopping orphaned container: ${name}`);
+        await runOnVPS(ssh, `docker stop ${name} && docker rm ${name}`, { allowFail: true });
+      }
+    }
+
+    // 3. Remove orphaned data directories
     const foldersStr = await runOnVPS(ssh, 'ls /data/chainforge', { allowFail: true });
     const folders = foldersStr.split(/\s+/).filter(f => f.startsWith('cf-'));
 

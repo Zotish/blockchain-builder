@@ -433,8 +433,9 @@ export default function BuilderPage() {
             type="number"
             className="input"
             value={chainConfig.blockTime}
-            onChange={(e) => updateConfig('blockTime', parseInt(e.target.value) || '')}
-            min={1}
+            onChange={(e) => updateConfig('blockTime', parseFloat(e.target.value) || '')}
+            min={0}
+            step="0.01"
             max={120}
           />
         </div>
