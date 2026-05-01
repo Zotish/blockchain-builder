@@ -239,7 +239,7 @@ const templates = {
       defaults: {
         consensus: 'raft',
         blockTime: 2,
-        symbol: 'N/A',
+        symbol: 'NA',
       },
     },
     {
