@@ -135,15 +135,45 @@ export default function ViewAllBlocksPage() {
               fetch(`${rpcUrl}/block?height=${i}`).then(r => r.json()).then(d => d.result)
             );
           }
+        } else if (chainType === 'solana') {
+          const slotsRes = await fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', method: 'getBlocks', params: [Math.max(0, latestNum - 40), latestNum], id: 1 })
+          }).then(r => r.json());
+          
+          if (slotsRes.result) {
+            const slots = slotsRes.result.slice(-count).reverse();
+            for (const slot of slots) {
+              blockPromises.push(
+                fetch(rpcUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ jsonrpc: '2.0', method: 'getBlock', params: [slot, { encoding: 'json', transactionDetails: 'signatures' }], id: slot })
+                }).then(r => r.json()).then(d => d.result ? { ...d.result, slot } : null)
+              );
+            }
+          }
         } else if (chainType === 'substrate') {
-          // Simplification for Substrate: just get the latest few
-          blockPromises.push(
-            fetch(rpcUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ jsonrpc: '2.0', method: 'chain_getBlock', params: [], id: 1 })
-            }).then(r => r.json()).then(d => d.result)
-          );
+          for (let i = 0; i < count; i++) {
+            const blockNum = latestNum - i;
+            if (blockNum < 0) break;
+            blockPromises.push(
+              fetch(rpcUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', method: 'chain_getBlockHash', params: [blockNum], id: i })
+              }).then(r => r.json())
+                .then(d => d.result 
+                  ? fetch(rpcUrl, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ jsonrpc: '2.0', method: 'chain_getBlock', params: [d.result], id: i })
+                    }).then(r => r.json()).then(inner => inner.result)
+                  : null
+                )
+            );
+          }
         }
 
         const results = await Promise.all(blockPromises);

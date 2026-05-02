@@ -91,6 +91,44 @@ export default function ViewAllTxsPage() {
               fetch(`${rpcUrl}/block?height=${i}`).then(r => r.json()).then(d => d.result)
             );
           }
+        } else if (chainType === 'solana') {
+          const slotsRes = await fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', method: 'getBlocks', params: [Math.max(0, latestNum - 20), latestNum], id: 1 })
+          }).then(r => r.json());
+          if (slotsRes.result) {
+            const slots = slotsRes.result.slice(-10).reverse();
+            for (const slot of slots) {
+              blockPromises.push(
+                fetch(rpcUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ jsonrpc: '2.0', method: 'getBlock', params: [slot, { encoding: 'json', transactionDetails: 'signatures' }], id: slot })
+                }).then(r => r.json()).then(d => d.result ? { ...d.result, slot } : null)
+              );
+            }
+          }
+        } else if (chainType === 'substrate') {
+          for (let i = 0; i < 5; i++) {
+            const blockNum = latestNum - i;
+            if (blockNum < 0) break;
+            blockPromises.push(
+              fetch(rpcUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', method: 'chain_getBlockHash', params: [blockNum], id: i })
+              }).then(r => r.json())
+                .then(d => d.result 
+                  ? fetch(rpcUrl, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ jsonrpc: '2.0', method: 'chain_getBlock', params: [d.result], id: i })
+                    }).then(r => r.json()).then(inner => inner.result)
+                  : null
+                )
+            );
+          }
         }
 
         const blockResults = await Promise.all(blockPromises);
@@ -103,17 +141,25 @@ export default function ViewAllTxsPage() {
 
           if (chainType === 'evm' || chainType === 'hyperledger' || chainType === 'custom') {
             txs = b.transactions || [];
-            timestamp = parseInt(b.timestamp, 16) * 1000;
-            blockNumber = parseInt(b.number, 16);
+            timestamp = typeof b.timestamp === 'string' ? parseInt(b.timestamp, 16) * 1000 : b.timestamp * 1000;
+            blockNumber = typeof b.number === 'string' ? parseInt(b.number, 16) : b.number;
           } else if (chainType === 'cosmos') {
             txs = b.block.data.txs || [];
             timestamp = new Date(b.block.header.time).getTime();
             blockNumber = parseInt(b.block.header.height);
+          } else if (chainType === 'solana') {
+            txs = (b.signatures || b.transactions || []).map(s => ({ hash: s, from: 'System', to: 'System', value: '0x0' }));
+            timestamp = (b.blockTime * 1000) || Date.now();
+            blockNumber = b.slot;
+          } else if (chainType === 'substrate') {
+            txs = (b.block.extrinsics || []).map((ex, idx) => ({ hash: `ex-${b.block.header.number}-${idx}`, from: 'Extrinsic', to: 'Extrinsic', value: '0x0' }));
+            timestamp = Date.now();
+            blockNumber = parseInt(b.block.header.number, 16) || b.block.header.number;
           }
 
           txs.forEach((tx, idx) => {
             allTxs.push({
-              hash: tx.hash || `cosmos-tx-${blockNumber}-${idx}`,
+              hash: tx.hash || tx.signature || `tx-${blockNumber}-${idx}`,
               from: tx.from || 'Unknown',
               to: tx.to || 'Unknown',
               value: tx.value || '0x0',
