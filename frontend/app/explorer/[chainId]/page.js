@@ -59,8 +59,8 @@ export default function PublicExplorerPage() {
       if (type === 'substrate') {
         return {
           number: parseInt(b.block.header.number, 16) || b.block.header.number,
-          hash: b.block.header.parentHash, // Substrate header doesn't easily show own hash in some RPCs, using parent as proxy or placeholder
-          timestamp: Date.now(), // Substrate RPCs often require a separate call for timestamp, using current as fallback
+          hash: b.block.header.parentHash,
+          timestamp: Date.now(),
           miner: 'Validator',
           transactions: b.block.extrinsics || [],
           gasUsed: '0x0', gasLimit: '0x1'
@@ -86,7 +86,17 @@ export default function PublicExplorerPage() {
           gasUsed: '0x0', gasLimit: '0x1'
         };
       }
-      return b; // EVM is already normalized
+      if (type === 'dag') {
+        return {
+          number: b.milestoneIndex || b.index || 0,
+          hash: b.milestoneId || b.messageId || '...',
+          timestamp: (b.timestamp * 1000) || Date.now(),
+          miner: 'Coordinator',
+          transactions: b.messages || [],
+          gasUsed: '0x0', gasLimit: '0x1'
+        };
+      }
+      return b; // EVM, Hyperledger Besu, and Custom-EVM are already normalized
     };
 
     const fetchLatestData = async () => {
@@ -118,7 +128,12 @@ export default function PublicExplorerPage() {
           });
           const data = await res.json();
           if (data.result) latestNum = parseInt(data.result.sync_info.latest_block_height);
+        } else if (chainType === 'dag') {
+          // IOTA / DAG style usually has milestones or info
+          const res = await fetch(`${rpcUrl}/api/v1/info`).then(r => r.json());
+          if (res.data) latestNum = res.data.latestMilestoneIndex;
         } else {
+          // Default to EVM (covers evm, hyperledger besu, custom-evm)
           const res = await fetch(rpcUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -135,7 +150,7 @@ export default function PublicExplorerPage() {
         const blockPromises = [];
         const count = 6;
 
-        if (chainType === 'evm') {
+        if (chainType === 'evm' || chainType === 'hyperledger' || chainType === 'custom') {
           for (let i = latestNum; i > Math.max(-1, latestNum - count); i--) {
             blockPromises.push(
               fetch(rpcUrl, {
@@ -151,9 +166,13 @@ export default function PublicExplorerPage() {
               fetch(`${rpcUrl}/block?height=${i}`).then(r => r.json()).then(d => d.result)
             );
           }
+        } else if (chainType === 'dag') {
+          for (let i = latestNum; i > Math.max(0, latestNum - count); i--) {
+            blockPromises.push(
+              fetch(`${rpcUrl}/api/v1/milestones/${i}`).then(r => r.json()).then(d => d.data)
+            );
+          }
         } else if (chainType === 'substrate') {
-          // Substrate requires getting hash first, then block
-          // For simplicity in polling, we fetch the last few headers if possible or just the latest
           blockPromises.push(
             fetch(rpcUrl, {
               method: 'POST',
