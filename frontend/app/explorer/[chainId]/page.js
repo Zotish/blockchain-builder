@@ -58,7 +58,7 @@ export default function PublicExplorerPage() {
     const normalizeBlock = (b, type) => {
       if (type === 'substrate') {
         return {
-          number: parseInt(b.block.header.number, 16) || b.block.header.number,
+          number: typeof b.block.header.number === 'string' ? parseInt(b.block.header.number, 16) : b.block.header.number,
           hash: b.block.header.parentHash,
           timestamp: Date.now(),
           miner: 'Validator',
@@ -96,7 +96,11 @@ export default function PublicExplorerPage() {
           gasUsed: '0x0', gasLimit: '0x1'
         };
       }
-      return b; // EVM, Hyperledger Besu, and Custom-EVM are already normalized
+      // EVM
+      return {
+        ...b,
+        number: typeof b.number === 'string' ? parseInt(b.number, 16) : b.number
+      };
     };
 
     const fetchLatestData = async () => {
@@ -171,6 +175,31 @@ export default function PublicExplorerPage() {
             blockPromises.push(
               fetch(`${rpcUrl}/api/v1/milestones/${i}`).then(r => r.json()).then(d => d.data)
             );
+          }
+        } else if (chainType === 'solana') {
+          // Solana: Get last 5 confirmed blocks
+          const slotsRes = await fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', method: 'getBlocks', params: [Math.max(0, latestNum - 20), latestNum], id: 1 })
+          }).then(r => r.json());
+          
+          if (slotsRes.result && slotsRes.result.length > 0) {
+            const lastSlots = slotsRes.result.slice(-5).reverse();
+            for (const slot of lastSlots) {
+              blockPromises.push(
+                fetch(rpcUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                    jsonrpc: '2.0', 
+                    method: 'getBlock', 
+                    params: [slot, { encoding: 'json', transactionDetails: 'signatures', rewards: false }], 
+                    id: slot 
+                  })
+                }).then(r => r.json()).then(d => d.result ? { ...d.result, slot } : null)
+              );
+            }
           }
         } else if (chainType === 'substrate') {
           blockPromises.push(
@@ -431,18 +460,22 @@ export default function PublicExplorerPage() {
                     <div className={styles.rowLeft}>
                       <div className={styles.iconBox}>Bk</div>
                       <div>
-                        <div className={styles.primaryLink} onClick={() => router.push(`/explorer/${chainId}/block/${parseInt(block.number, 16)}`)}>{parseInt(block.number, 16)}</div>
+                        <div className={styles.primaryLink} onClick={() => router.push(`/explorer/${chainId}/block/${block.number}`)}>{block.number}</div>
                         <div className={styles.subText}>{timeAgo(block.timestamp)}</div>
                       </div>
                     </div>
                     <div className={styles.rowMiddle}>
                       <div>Validated By <span className={styles.primaryLink} onClick={() => router.push(`/explorer/${chainId}/address/${block.miner}`)}>{truncateAddr(block.miner)}</span></div>
                       <div className={styles.subText}>
-                        <span className={styles.primaryLink} onClick={() => router.push(`/explorer/${chainId}/block/${parseInt(block.number, 16)}`)}>{block.transactions?.length || 0} txns</span> in {chain.config?.blockTime} secs
+                        <span className={styles.primaryLink} onClick={() => router.push(`/explorer/${chainId}/block/${block.number}`)}>{block.transactions?.length || 0} txns</span> in {chain.config?.blockTime} secs
                       </div>
                     </div>
                     <div className={styles.rowRight}>
-                      <div className={styles.badge}>{Math.round(parseInt(block.gasUsed, 16) / parseInt(block.gasLimit, 16) * 100)}% Gas Used</div>
+                      <div className={styles.badge}>
+                        {block.gasLimit && parseInt(block.gasLimit, 16) > 0 
+                          ? `${Math.round(parseInt(block.gasUsed, 16) / parseInt(block.gasLimit, 16) * 100)}% Gas Used`
+                          : '0% Gas Used'}
+                      </div>
                     </div>
                   </div>
                 ))
