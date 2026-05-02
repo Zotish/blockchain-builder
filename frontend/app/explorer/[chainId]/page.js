@@ -426,7 +426,7 @@ export default function PublicExplorerPage() {
               {blocks.length === 0 ? (
                 <div className={styles.emptyState}>No blocks available</div>
               ) : (
-                blocks.map(block => (
+                blocks.slice(0, 5).map(block => (
                   <div className={styles.rowItem} key={block.hash}>
                     <div className={styles.rowLeft}>
                       <div className={styles.iconBox}>Bk</div>
@@ -449,7 +449,7 @@ export default function PublicExplorerPage() {
               )}
             </div>
             <div className={styles.cardFooter}>
-              <button className={styles.viewAllBtn}>VIEW ALL BLOCKS</button>
+              <button className={styles.viewAllBtn} onClick={() => router.push(`/explorer/${chainId}/blocks`)}>VIEW ALL BLOCKS</button>
             </div>
           </div>
 
@@ -462,7 +462,7 @@ export default function PublicExplorerPage() {
               {transactions.length === 0 ? (
                 <div className={styles.emptyState}>No recent transactions</div>
               ) : (
-                transactions.map(tx => (
+                transactions.slice(0, 5).map(tx => (
                   <div className={styles.rowItem} key={tx.hash}>
                     <div className={styles.rowLeft}>
                       <div className={styles.iconBoxTx}>Tx</div>
@@ -485,7 +485,7 @@ export default function PublicExplorerPage() {
               )}
             </div>
             <div className={styles.cardFooter}>
-              <button className={styles.viewAllBtn}>VIEW ALL TRANSACTIONS</button>
+              <button className={styles.viewAllBtn} onClick={() => router.push(`/explorer/${chainId}/txs`)}>VIEW ALL TRANSACTIONS</button>
             </div>
           </div>
 

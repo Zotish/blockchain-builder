@@ -405,3 +405,85 @@
     display: none;
   }
 }
+
+/* Table View for View All Pages */
+.tableCard {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  overflow: hidden;
+  margin-bottom: 2rem;
+}
+
+.tableWrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.explorerTable {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.explorerTable th {
+  background: #f8fafc;
+  padding: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.explorerTable td {
+  padding: 1rem;
+  font-size: 0.9rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.explorerTable tr:hover {
+  background-color: #f8fafc;
+}
+
+.tableTitleSection {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.tableTitleSection h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+}
+
+.pagination {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.pageBtn {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #e2e8f0;
+  background: white;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: #475569;
+}
+
+.pageBtn:hover:not(:disabled) {
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.pageBtnActive {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
